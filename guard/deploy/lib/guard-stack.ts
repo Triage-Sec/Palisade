@@ -30,19 +30,15 @@ export class GuardStack extends cdk.Stack {
     const vpc = ec2.Vpc.fromLookup(this, "Vpc", { vpcId });
 
     // ---------------------------------------------------------------
-    // ECR Repository — stores guard Docker images.
-    // removalPolicy=RETAIN so images survive stack teardown.
+    // ECR Repository — look up the existing repo.
+    // The repo is created by scripts/create_docker.sh on first push.
+    // CDK references it rather than creating it, avoiding conflicts.
     // ---------------------------------------------------------------
-    const repo = new ecr.Repository(this, "Repo", {
-      repositoryName: "palisade-guard",
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      lifecycleRules: [
-        {
-          maxImageCount: 20,
-          description: "Keep last 20 images",
-        },
-      ],
-    });
+    const repo = ecr.Repository.fromRepositoryName(
+      this,
+      "Repo",
+      "palisade-guard"
+    );
 
     // ---------------------------------------------------------------
     // ECS Cluster — one cluster per environment for the guard service.
