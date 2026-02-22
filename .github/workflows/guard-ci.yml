@@ -1,0 +1,56 @@
+name: Guard CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "guard/**"
+      - "proto/**"
+      - ".github/workflows/guard-ci.yml"
+  pull_request:
+    paths:
+      - "guard/**"
+      - "proto/**"
+      - ".github/workflows/guard-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: guard/go.sum
+
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: guard
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: guard/go.sum
+
+      - name: Run tests
+        working-directory: guard
+        run: go test ./... -v -race -count=1
+
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image (smoke test)
+        run: docker build -f guard/deploy/Dockerfile -t palisade-guard:ci .

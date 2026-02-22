@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package triage.guard.v1;
+
+option go_package = "github.com/triage-ai/palisade/gen/guard/v1;guardv1";
+
+// ==========================================================================
+// GuardService — the enforcement hot path
+// ==========================================================================
+
+service GuardService {
+    // Unary RPC: client sends CheckRequest, server returns CheckResponse.
+    // Latency target: <40ms p99.
+    rpc Check(CheckRequest) returns (CheckResponse);
+
+    // Server-streaming RPC for batch checks (Phase 3).
+    // Client sends N requests, server streams back N responses.
+    rpc CheckBatch(CheckBatchRequest) returns (stream CheckResponse);
+}
+
+// ==========================================================================
+// Enums
+// ==========================================================================
+
+// What kind of AI operation is being checked.
+enum ActionType {
+    ACTION_TYPE_UNSPECIFIED = 0;
+    ACTION_TYPE_LLM_INPUT = 1;
+    ACTION_TYPE_LLM_OUTPUT = 2;
+    ACTION_TYPE_TOOL_CALL = 3;
+    ACTION_TYPE_TOOL_RESULT = 4;
+    ACTION_TYPE_RAG_RETRIEVAL = 5;
+    ACTION_TYPE_CHAIN_OF_THOUGHT = 6;
+    ACTION_TYPE_DB_QUERY = 7;
+    ACTION_TYPE_CUSTOM = 8;
+}
+
+// The enforcement decision.
+enum Verdict {
+    VERDICT_UNSPECIFIED = 0;
+    VERDICT_ALLOW = 1;
+    VERDICT_BLOCK = 2;
+    VERDICT_FLAG = 3;       // Allow but mark for human review
+}
+
+// Category of detected threat.
+enum ThreatCategory {
+    THREAT_CATEGORY_UNSPECIFIED = 0;
+    THREAT_CATEGORY_PROMPT_INJECTION = 1;
+    THREAT_CATEGORY_JAILBREAK = 2;
+    THREAT_CATEGORY_PII_LEAKAGE = 3;
+    THREAT_CATEGORY_CONTENT_MODERATION = 4;
+    THREAT_CATEGORY_TOOL_ABUSE = 5;
+    THREAT_CATEGORY_DATA_EXFILTRATION = 6;
+    THREAT_CATEGORY_CUSTOM_RULE = 7;
+}
+
+// ==========================================================================
+// Request / Response Messages
+// ==========================================================================
+
+message CheckRequest {
+    // The content to screen. JSON-serialized if dict/list.
+    string payload = 1;
+
+    // What type of AI operation this payload belongs to.
+    ActionType action = 2;
+
+    // Identity context (who is making this action).
+    Identity identity = 3;
+
+    // Client's own trace/span ID for correlation with their observability.
+    string client_trace_id = 4;
+
+    // Structured tool call details (for TOOL_CALL action).
+    ToolCall tool_call = 5;
+
+    // Arbitrary key-value metadata for custom rules.
+    map<string, string> metadata = 6;
+
+    // Project ID (also in gRPC metadata, duplicated here for logging).
+    string project_id = 7;
+}
+
+message CheckResponse {
+    // The enforcement verdict.
+    Verdict verdict = 1;
+
+    // Which detectors fired and their results.
+    repeated DetectorResult detectors = 2;
+
+    // Server-side processing latency in milliseconds.
+    float latency_ms = 3;
+
+    // Unique ID for this check event (maps to security_events row).
+    string request_id = 4;
+
+    // Whether this response was generated in shadow mode.
+    bool is_shadow = 5;
+
+    // Human-readable explanation of why the verdict was reached.
+    string reason = 6;
+}
+
+message DetectorResult {
+    // Name of the detector (e.g., "prompt_injection_v2", "pii_ner").
+    string detector = 1;
+
+    // Whether this detector considers the payload a threat.
+    bool triggered = 2;
+
+    // Confidence score (0.0 to 1.0).
+    float confidence = 3;
+
+    // Threat category this detector covers.
+    ThreatCategory category = 4;
+
+    // Human-readable detail.
+    string details = 5;
+}
+
+message Identity {
+    string user_id = 1;
+    string session_id = 2;
+    string tenant_id = 3;
+}
+
+message ToolCall {
+    string function_name = 1;
+    string arguments_json = 2;
+}
+
+message CheckBatchRequest {
+    repeated CheckRequest requests = 1;
+}

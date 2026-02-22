@@ -1,0 +1,19 @@
+# Secrets
+.env
+.env.*
+
+# Go
+guard/bin/
+
+# CDK
+guard/deploy/node_modules/
+guard/deploy/cdk.out/
+guard/deploy/*.js
+guard/deploy/*.d.ts
+guard/deploy/lib/*.js
+guard/deploy/lib/*.d.ts
+guard/deploy/bin/*.js
+guard/deploy/bin/*.d.ts
+
+# OS
+.DS_Store
