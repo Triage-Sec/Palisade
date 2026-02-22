@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
@@ -37,61 +36,49 @@ type detectorOutput struct {
 // Evaluate runs all detectors in parallel against the request and returns
 // the aggregated results. Detectors that exceed the timeout are skipped.
 //
-// The timeout is enforced at the Evaluate level: if the deadline fires before
-// all goroutines finish, Evaluate returns immediately with whatever results
-// have been written so far. Slow goroutines keep running in the background
-// (Go doesn't allow killing goroutines) but their results are never read —
-// each goroutine writes to its own pre-allocated index in the outputs slice,
-// so there are no data races.
+// Each goroutine sends its result through a buffered channel, so the main
+// goroutine can safely read completed results without racing against
+// in-flight writes. When the deadline fires, we stop reading and return
+// whatever has been collected. Late-finishing goroutines send into the
+// buffered channel (which has capacity for all detectors) and are never
+// read — the channel is GC'd once all references are gone.
 func (e *SentryEngine) Evaluate(ctx context.Context, req *DetectRequest) ([]*guardv1.DetectorResult, time.Duration) {
 	start := time.Now()
 
 	ctx, cancel := context.WithTimeout(ctx, e.timeout)
 	defer cancel()
 
-	outputs := make([]detectorOutput, len(e.detectors))
-	var wg sync.WaitGroup
-	wg.Add(len(e.detectors))
+	ch := make(chan detectorOutput, len(e.detectors))
 
-	for i, det := range e.detectors {
-		go func(idx int, d Detector) {
-			defer wg.Done()
+	for _, det := range e.detectors {
+		go func(d Detector) {
 			result, err := d.Detect(ctx, req)
-			outputs[idx] = detectorOutput{
+			ch <- detectorOutput{
 				name:     d.Name(),
 				category: d.Category(),
 				result:   result,
 				err:      err,
 			}
-		}(i, det)
+		}(det)
 	}
 
-	// Race the WaitGroup against the context deadline. If the deadline fires
-	// first, we return with whatever outputs have been written so far.
-	// Unfinished goroutines will have zero-value detectorOutput entries
-	// (name="" and result=nil), which are skipped below.
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		// All detectors finished within the deadline.
-	case <-ctx.Done():
-		// Deadline exceeded — proceed with partial results.
-		e.logger.Warn("detector timeout exceeded, returning partial results",
-			zap.Duration("timeout", e.timeout),
-		)
-	}
-
-	results := make([]*guardv1.DetectorResult, 0, len(e.detectors))
-	for _, out := range outputs {
-		if out.name == "" {
-			// Goroutine hasn't written yet (timed out) — treat as not triggered.
-			continue
+	collected := make([]detectorOutput, 0, len(e.detectors))
+	remaining := len(e.detectors)
+	for remaining > 0 {
+		select {
+		case out := <-ch:
+			collected = append(collected, out)
+			remaining--
+		case <-ctx.Done():
+			e.logger.Warn("detector timeout exceeded, returning partial results",
+				zap.Duration("timeout", e.timeout),
+			)
+			remaining = 0
 		}
+	}
+
+	results := make([]*guardv1.DetectorResult, 0, len(collected))
+	for _, out := range collected {
 		if out.err != nil {
 			e.logger.Warn("detector error",
 				zap.String("detector", out.name),

@@ -15,5 +15,8 @@ guard/deploy/lib/*.d.ts
 guard/deploy/bin/*.js
 guard/deploy/bin/*.d.ts
 
+# pnpm
+.pnpm-store/
+
 # OS
 .DS_Store
