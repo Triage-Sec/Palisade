@@ -45,7 +45,7 @@ func testServer(t *testing.T) (guardv1.GuardServiceClient, func()) {
 		t.Fatalf("failed to listen: %v", err)
 	}
 
-	go grpcServer.Serve(lis)
+	go func() { _ = grpcServer.Serve(lis) }()
 
 	conn, err := grpc.NewClient(
 		lis.Addr().String(),
@@ -57,7 +57,7 @@ func testServer(t *testing.T) (guardv1.GuardServiceClient, func()) {
 
 	client := guardv1.NewGuardServiceClient(conn)
 	cleanup := func() {
-		conn.Close()
+		_ = conn.Close()
 		grpcServer.Stop()
 	}
 
@@ -356,7 +356,7 @@ func TestIntegration_SlowDetector(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
-	go grpcServer.Serve(lis)
+	go func() { _ = grpcServer.Serve(lis) }()
 	defer grpcServer.Stop()
 
 	conn, err := grpc.NewClient(
@@ -366,7 +366,7 @@ func TestIntegration_SlowDetector(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := guardv1.NewGuardServiceClient(conn)
 

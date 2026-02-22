@@ -130,7 +130,7 @@ func BenchmarkPIIDetector_Safe(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		d.Detect(ctx, req)
+		_, _ = d.Detect(ctx, req)
 	}
 }
 
@@ -145,6 +145,6 @@ func BenchmarkPIIDetector_WithPII(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		d.Detect(ctx, req)
+		_, _ = d.Detect(ctx, req)
 	}
 }

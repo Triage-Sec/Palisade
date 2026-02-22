@@ -194,7 +194,7 @@ func BenchmarkToolAbuseDetector_Safe(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		d.Detect(ctx, req)
+		_, _ = d.Detect(ctx, req)
 	}
 }
 
@@ -209,6 +209,6 @@ func BenchmarkToolAbuseDetector_SQLInjection(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		d.Detect(ctx, req)
+		_, _ = d.Detect(ctx, req)
 	}
 }

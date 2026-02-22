@@ -27,7 +27,7 @@ import (
 func main() {
 	// Logger
 	logger := mustBuildLogger(envOrDefault("GUARD_LOG_LEVEL", "info"))
-	defer logger.Sync()
+	defer logger.Sync() //nolint:errcheck // best-effort flush
 
 	// Config from env
 	port := envOrDefault("GUARD_PORT", "50051")

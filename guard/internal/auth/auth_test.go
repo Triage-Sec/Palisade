@@ -156,6 +156,6 @@ func BenchmarkStaticAuthenticator(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		a.Authenticate(ctx)
+		_, _ = a.Authenticate(ctx)
 	}
 }

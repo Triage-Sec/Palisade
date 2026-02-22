@@ -123,7 +123,7 @@ func BenchmarkPromptInjectionDetector_Safe(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		d.Detect(ctx, req)
+		_, _ = d.Detect(ctx, req)
 	}
 }
 
@@ -138,6 +138,6 @@ func BenchmarkPromptInjectionDetector_Malicious(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		d.Detect(ctx, req)
+		_, _ = d.Detect(ctx, req)
 	}
 }
