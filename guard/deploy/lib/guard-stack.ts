@@ -116,7 +116,10 @@ export class GuardStack extends cdk.Stack {
       serviceName: `palisade-guard-${envName}`,
       taskDefinition: taskDef,
       desiredCount: 2,
-      assignPublicIp: true, // Needed if using public subnets
+      assignPublicIp: true,
+      // Place tasks in public subnets so they can reach ClickHouse Cloud
+      // (external internet). Private subnets would need a NAT Gateway ($$$).
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       securityGroups: [sg],
       circuitBreaker: { enable: true, rollback: true },
       minHealthyPercent: 100,
