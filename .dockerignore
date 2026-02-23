@@ -1,0 +1,38 @@
+# Git
+.git
+.github
+
+# Docs / config (not needed for building the Go binary)
+CLAUDE.md
+IMPLEMENTATION.md
+README.md
+.env
+.env.*
+.gitignore
+.dockerignore
+
+# CDK infrastructure (TypeScript, not part of the Go build)
+guard/deploy/node_modules/
+guard/deploy/cdk.out/
+guard/deploy/*.js
+guard/deploy/*.d.ts
+guard/deploy/lib/*.js
+guard/deploy/lib/*.d.ts
+guard/deploy/bin/*.js
+guard/deploy/bin/*.d.ts
+guard/deploy/package.json
+guard/deploy/pnpm-lock.yaml
+guard/deploy/tsconfig.json
+guard/deploy/cdk.json
+
+# pnpm store
+.pnpm-store/
+
+# Go test files (not needed for production binary)
+guard/**/*_test.go
+
+# Go build artifacts
+guard/bin/
+
+# OS
+.DS_Store

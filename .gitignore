@@ -2,6 +2,10 @@
 .env
 .env.*
 
+# Internal docs (local only, not pushed to GitHub)
+CLAUDE.md
+IMPLEMENTATION.md
+
 # Go
 guard/bin/
 
