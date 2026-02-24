@@ -22,9 +22,11 @@ type Detector interface {
 
 // DetectRequest contains the payload and context for a detection run.
 type DetectRequest struct {
-	Payload  string
-	Action   guardv1.ActionType
-	ToolCall *guardv1.ToolCall // nil unless action == ACTION_TYPE_TOOL_CALL
+	Payload       string
+	Action        guardv1.ActionType
+	ToolCall      *guardv1.ToolCall // nil unless action == ACTION_TYPE_TOOL_CALL
+	ToolAllowList []string          // Per-project tool allowlist (set by engine from policy)
+	ToolBlockList []string          // Per-project tool blocklist (set by engine from policy)
 }
 
 // DetectResult is the outcome of a single detector run.

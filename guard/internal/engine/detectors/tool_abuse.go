@@ -79,9 +79,29 @@ func (d *ToolAbuseDetector) Detect(ctx context.Context, req *engine.DetectReques
 	var bestConfidence float32
 	var bestDetail string
 
-	// Check tool call function name against blocklist
+	// Per-project tool allow/block lists (from policy) take priority.
 	if req.ToolCall != nil {
 		funcName := strings.ToLower(req.ToolCall.FunctionName)
+
+		// Allowlist: if set, tool MUST be in the list
+		if len(req.ToolAllowList) > 0 && !stringInSlice(funcName, req.ToolAllowList) {
+			return &engine.DetectResult{
+				Triggered:  true,
+				Confidence: 0.90,
+				Details:    "tool not in project allowlist: " + req.ToolCall.FunctionName,
+			}, nil
+		}
+
+		// Per-project blocklist
+		if stringInSlice(funcName, req.ToolBlockList) {
+			return &engine.DetectResult{
+				Triggered:  true,
+				Confidence: 0.95,
+				Details:    "tool in project blocklist: " + req.ToolCall.FunctionName,
+			}, nil
+		}
+
+		// Global blocklist
 		if blockedFunctionNames[funcName] {
 			return &engine.DetectResult{
 				Triggered:  true,
@@ -143,4 +163,14 @@ func (d *ToolAbuseDetector) Detect(ctx context.Context, req *engine.DetectReques
 		Triggered:  false,
 		Confidence: 0,
 	}, nil
+}
+
+// stringInSlice checks if a lowercased string exists in a slice.
+func stringInSlice(s string, list []string) bool {
+	for _, v := range list {
+		if strings.ToLower(v) == s {
+			return true
+		}
+	}
+	return false
 }

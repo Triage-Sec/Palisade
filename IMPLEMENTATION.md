@@ -130,8 +130,7 @@ guard/
 │   ├── storage/
 │   │   ├── clickhouse.go              # Buffered async ClickHouse writer
 │   │   └── events.go                  # SecurityEvent struct + EventWriter interface
-│   └── circuit/                        # Empty — not yet implemented
-│       └── (planned: breaker.go)
+│   └── circuit/                        # Empty — deferred to Phase 6 (ML detectors)
 ├── gen/guard/v1/                       # Generated protobuf Go code
 ├── migrations/                         # ClickHouse DDL
 ├── deploy/                             # CDK infrastructure (ECS Fargate + NLB)
@@ -795,8 +794,6 @@ This is critical — without this, the backend writes config to Postgres but Gua
 | DB connection from Guard | `palisade` | Add Supabase PostgreSQL connection string to Guard. Security group must allow Guard ECS tasks → Supabase |
 | Project config cache | `palisade` | In-memory cache with 30s TTL to avoid per-request DB round-trips. Key = `api_key_prefix`, value = `ProjectContext`. Invalidation on cache miss |
 | Policy-aware SentryEngine | `palisade` | On each Check(), read the project's `policies` row (cached). Skip disabled detectors, use custom thresholds (block_threshold, flag_threshold), apply tool allowlists/blocklists |
-| Per-detector circuit breakers | `palisade` | If a single detector consistently times out, open its circuit breaker so it doesn't slow down the whole fan-out. Return default (not-triggered) for that detector |
-| TLS on NLB | `palisade` | Add TLS termination on the Network Load Balancer (currently plaintext gRPC within VPC) |
 
 **Verification:**
 - [ ] `POST /v1/palisade` with real `tsk_` key → Guard authenticates against Postgres

@@ -66,11 +66,11 @@ func (s *GuardServer) Check(ctx context.Context, req *guardv1.CheckRequest) (*gu
 		ToolCall: req.ToolCall,
 	}
 
-	// 3. Fan-out to all detectors
-	detectorResults, _ := s.engine.Evaluate(ctx, detectReq)
+	// 3. Fan-out to all detectors (policy filters disabled detectors + sets tool lists)
+	detectorResults, _ := s.engine.Evaluate(ctx, detectReq, project.Policy)
 
-	// 4. Aggregate results into verdict
-	aggResult := engine.Aggregate(detectorResults, s.aggCfg)
+	// 4. Aggregate results into verdict (per-detector thresholds from policy)
+	aggResult := engine.AggregateWithPolicy(detectorResults, s.aggCfg, project.Policy)
 	realVerdict := aggResult.Verdict
 
 	// 5. Shadow mode: log the real verdict to ClickHouse but return ALLOW to the client.

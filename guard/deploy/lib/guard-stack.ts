@@ -67,9 +67,10 @@ export class GuardStack extends cdk.Stack {
       memoryLimitMiB: 1024, // 1 GB
     });
 
-    // ClickHouse DSN is passed via env var at deploy time.
-    // In production, move this to AWS Secrets Manager for better security.
+    // DSNs are passed via env var at deploy time.
+    // In production, move these to AWS Secrets Manager for better security.
     const clickhouseDsn = process.env.CLICKHOUSE_DSN || "";
+    const postgresDsn = process.env.POSTGRES_DSN || "";
 
     taskDef.addContainer("guard", {
       image: ecs.ContainerImage.fromEcrRepository(repo, imageTag),
@@ -90,6 +91,7 @@ export class GuardStack extends cdk.Stack {
         GUARD_BLOCK_THRESHOLD: "0.8",
         GUARD_FLAG_THRESHOLD: "0.0",
         CLICKHOUSE_DSN: clickhouseDsn,
+        POSTGRES_DSN: postgresDsn,
       },
     });
 
