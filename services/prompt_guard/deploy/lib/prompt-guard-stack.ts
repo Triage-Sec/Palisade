@@ -56,25 +56,15 @@ export class PromptGuardStack extends cdk.Stack {
     });
 
     // ---------------------------------------------------------------
-    // Security Group — allow inbound gRPC on port 50052.
-    // ---------------------------------------------------------------
-    const sg = new ec2.SecurityGroup(this, "PromptGuardSg", {
-      vpc,
-      description:
-        "Allow inbound gRPC traffic to prompt guard service (internal)",
-      allowAllOutbound: true,
-    });
-    sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(50052), "gRPC internal");
-
-    // ---------------------------------------------------------------
-    // Single EC2 instance — g4dn.xlarge for T4 GPU.
+    // Single GPU instance — g4dn.xlarge for T4 GPU.
     //
     // WHY EC2 (not Fargate):
     // Fargate does not support GPU instances. We need a T4 GPU for
     // fast ML inference (<15ms per classification).
+    //
+    // Uses cluster.addCapacity() with min=max=1 for a single instance.
     // ---------------------------------------------------------------
-    const instance = new ec2.Instance(this, "Instance", {
-      vpc,
+    const capacity = cluster.addCapacity("GpuCapacity", {
       instanceType: ec2.InstanceType.of(
         ec2.InstanceClass.G4DN,
         ec2.InstanceSize.XLARGE
@@ -82,15 +72,12 @@ export class PromptGuardStack extends cdk.Stack {
       machineImage: ecs.EcsOptimizedImage.amazonLinux2(
         ecs.AmiHardwareType.GPU
       ),
-      securityGroup: sg,
+      minCapacity: 1,
+      maxCapacity: 1,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       associatePublicIpAddress: true,
     });
-
-    // Join the ECS cluster
-    instance.addUserData(
-      `echo ECS_CLUSTER=${cluster.clusterName} >> /etc/ecs/ecs.config`
-    );
+    capacity.connections.allowFromAnyIpv4(ec2.Port.tcp(50052), "gRPC internal");
 
     // ---------------------------------------------------------------
     // EC2 Task Definition — 4 vCPU / 14 GB + 1 GPU.
@@ -122,10 +109,6 @@ export class PromptGuardStack extends cdk.Stack {
           "qualifire/prompt-injection-jailbreak-sentinel-v2",
       },
     });
-
-    // Grant the instance permission to pull from ECR and write logs
-    repo.grantPull(instance.role);
-    logGroup.grantWrite(instance.role);
 
     // ---------------------------------------------------------------
     // ECS Service — runs on the single EC2 instance.

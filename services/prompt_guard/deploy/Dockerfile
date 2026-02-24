@@ -1,16 +1,10 @@
 # === Builder ===
-# Install Python dependencies in a builder stage to keep the runtime image clean.
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS builder
-
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.11 python3.11-venv python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
 # Create venv and install dependencies first (cached layer).
-RUN python3.11 -m venv /opt/venv
+RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY services/prompt_guard/pyproject.toml ./
@@ -31,15 +25,12 @@ RUN python -m grpc_tools.protoc \
     src/prompt_guard/gen/prompt_guard/v1/prompt_guard_pb2_grpc.py
 
 # === Runtime ===
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+# PyTorch ships its own CUDA libraries bundled in the wheel.
+# No need for the nvidia/cuda base image — python:3.11-slim is sufficient.
+# The g4dn instance provides the NVIDIA driver; PyTorch handles the rest.
+FROM python:3.11-slim
 
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.11 python3.11-venv \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create non-root user
-RUN groupadd -r promptguard && useradd -r -g promptguard -d /app promptguard
+RUN useradd -r -d /app promptguard
 
 WORKDIR /app
 
@@ -51,8 +42,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --from=builder /build/src/ ./src/
 
 # Pre-download model during build for fast cold starts.
-# HF_TOKEN is passed as a build arg (--build-arg HF_TOKEN=...).
-# If not set, model download is skipped (container will download on first start).
+# If HF_TOKEN is not set, model download is skipped (container will download on first start).
 ARG HF_TOKEN=""
 ENV HF_HOME=/app/.cache/huggingface
 RUN if [ -n "$HF_TOKEN" ]; then \
