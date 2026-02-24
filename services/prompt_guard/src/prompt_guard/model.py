@@ -30,7 +30,9 @@ class PromptGuardModel:
         self._model.eval()
 
         elapsed_ms = (time.monotonic() - start) * 1000
-        logger.info("model_loaded", model=model_name, device=self._device, elapsed_ms=round(elapsed_ms, 1))
+        logger.info(
+            "model_loaded", model=model_name, device=self._device, elapsed_ms=round(elapsed_ms, 1)
+        )
 
         self._warmup()
 

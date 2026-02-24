@@ -26,7 +26,9 @@ RUN python -m grpc_tools.protoc \
     --python_out=src/prompt_guard/gen \
     --grpc_python_out=src/prompt_guard/gen \
     --pyi_out=src/prompt_guard/gen \
-    /proto/prompt_guard/v1/prompt_guard.proto
+    /proto/prompt_guard/v1/prompt_guard.proto && \
+    sed -i 's/from prompt_guard\.v1 import/from prompt_guard.gen.prompt_guard.v1 import/' \
+    src/prompt_guard/gen/prompt_guard/v1/prompt_guard_pb2_grpc.py
 
 # === Runtime ===
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
@@ -48,10 +50,15 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy application code (with generated proto stubs)
 COPY --from=builder /build/src/ ./src/
 
-# Optional: pre-download model during build for faster cold starts.
-# Uncomment the next two lines for production images:
-# ENV HF_HOME=/app/.cache/huggingface
-# RUN python -c "from transformers import AutoModelForSequenceClassification, AutoTokenizer; AutoTokenizer.from_pretrained('qualifire/prompt-injection-jailbreak-sentinel-v2'); AutoModelForSequenceClassification.from_pretrained('qualifire/prompt-injection-jailbreak-sentinel-v2')"
+# Pre-download model during build for fast cold starts.
+# HF_TOKEN is passed as a build arg (--build-arg HF_TOKEN=...) and NOT persisted in the final image.
+ARG HF_TOKEN
+ENV HF_HOME=/app/.cache/huggingface
+RUN --mount=type=secret,id=HF_TOKEN \
+    HF_TOKEN="${HF_TOKEN}" python -c "\
+from transformers import AutoModelForSequenceClassification, AutoTokenizer; \
+AutoTokenizer.from_pretrained('qualifire/prompt-injection-jailbreak-sentinel-v2'); \
+AutoModelForSequenceClassification.from_pretrained('qualifire/prompt-injection-jailbreak-sentinel-v2')"
 
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1

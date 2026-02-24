@@ -11,6 +11,7 @@
 #   - AWS CLI configured (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION)
 #   - Docker running
 #   - AWS_ACCOUNT_ID set (or auto-detected via STS)
+#   - HF_TOKEN set (HuggingFace token for model download during build)
 
 set -euo pipefail
 
@@ -34,8 +35,10 @@ aws ecr get-login-password --region "${AWS_REGION}" | \
   docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
 # Build from repo root (Dockerfile needs services/prompt_guard/ and proto/ directories).
+# HF_TOKEN is used to download the model during build (baked into the image).
 docker build \
   -f services/prompt_guard/deploy/Dockerfile \
+  --build-arg HF_TOKEN="${HF_TOKEN:?HF_TOKEN is required}" \
   -t "${ECR_REGISTRY}/${ECR_REPO}:${VERSION}" \
   -t "${ECR_REGISTRY}/${ECR_REPO}:latest" \
   .

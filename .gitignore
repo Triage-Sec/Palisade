@@ -20,6 +20,7 @@ guard/deploy/bin/*.js
 guard/deploy/bin/*.d.ts
 
 # Prompt Guard (Python)
+services/prompt_guard/model/
 services/prompt_guard/.venv/
 services/prompt_guard/__pycache__/
 services/prompt_guard/src/*.egg-info/

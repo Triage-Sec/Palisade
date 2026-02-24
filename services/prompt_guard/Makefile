@@ -12,6 +12,10 @@ proto:
 		--grpc_python_out=$(GEN_DIR) \
 		--pyi_out=$(GEN_DIR) \
 		$(PROTO_DIR)/prompt_guard/v1/prompt_guard.proto
+	@# Fix generated import path: protoc generates "from prompt_guard.v1 import ..."
+	@# but we need "from prompt_guard.gen.prompt_guard.v1 import ..." since gen/ is nested.
+	sed -i'' -e 's/from prompt_guard\.v1 import/from prompt_guard.gen.prompt_guard.v1 import/' \
+		$(GEN_DIR)/prompt_guard/v1/prompt_guard_pb2_grpc.py
 
 ## — Run —
 

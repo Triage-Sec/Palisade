@@ -38,7 +38,7 @@ jobs:
 
       - name: Lint
         working-directory: services/prompt_guard
-        run: ruff check src/ tests/
+        run: ruff check src/ tests/ --exclude src/prompt_guard/gen
 
   test:
     runs-on: ubuntu-latest
