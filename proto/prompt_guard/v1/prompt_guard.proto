@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package triage.prompt_guard.v1;
+
+option go_package = "github.com/triage-ai/palisade/gen/prompt_guard/v1;promptguardv1";
+
+// ==========================================================================
+// PromptGuardService — GPU-backed ML classifier for prompt injection
+// ==========================================================================
+
+service PromptGuardService {
+    // Classify a single text input. Returns label + confidence.
+    rpc Classify(ClassifyRequest) returns (ClassifyResponse);
+
+    // Batch classify multiple texts (future: GPU batching optimization).
+    rpc ClassifyBatch(ClassifyBatchRequest) returns (ClassifyBatchResponse);
+
+    // Health/readiness check — returns model info and status.
+    rpc ModelInfo(ModelInfoRequest) returns (ModelInfoResponse);
+}
+
+// ==========================================================================
+// Messages
+// ==========================================================================
+
+message ClassifyRequest {
+    // The text to classify for prompt injection.
+    string text = 1;
+}
+
+message ClassifyResponse {
+    // The classification label (e.g., "INJECTION", "SAFE").
+    string label = 1;
+
+    // Confidence score (0.0 to 1.0).
+    float confidence = 2;
+
+    // Model inference latency in milliseconds.
+    float latency_ms = 3;
+
+    // Model name used for this classification.
+    string model_name = 4;
+}
+
+message ClassifyBatchRequest {
+    repeated string texts = 1;
+}
+
+message ClassifyBatchResponse {
+    repeated ClassifyResponse results = 1;
+}
+
+message ModelInfoRequest {}
+
+message ModelInfoResponse {
+    // Model name (e.g., "protectai/deberta-v3-base-prompt-injection-v2").
+    string model_name = 1;
+
+    // Whether the model is loaded and ready.
+    bool ready = 2;
+
+    // Device the model is running on (e.g., "cuda", "cpu").
+    string device = 3;
+}

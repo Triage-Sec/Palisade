@@ -53,6 +53,26 @@ func main() {
 		detectors.NewContentModDetector(),
 		detectors.NewToolAbuseDetector(),
 	}
+
+	// ML detector — conditional on PROMPT_GUARD_ENDPOINT being set.
+	// When enabled, increase detector timeout to accommodate network round-trip + inference.
+	if endpoint := os.Getenv("PROMPT_GUARD_ENDPOINT"); endpoint != "" {
+		mlTimeout := time.Duration(envOrDefaultInt("PROMPT_GUARD_TIMEOUT_MS", 100)) * time.Millisecond
+		mlDet, err := detectors.NewMLPromptInjectionDetector(endpoint, mlTimeout, logger)
+		if err != nil {
+			logger.Warn("failed to connect ml prompt injection detector, skipping",
+				zap.String("endpoint", endpoint),
+				zap.Error(err),
+			)
+		} else {
+			dets = append(dets, mlDet)
+			logger.Info("ml prompt injection detector enabled",
+				zap.String("endpoint", endpoint),
+				zap.Duration("timeout", mlTimeout),
+			)
+		}
+	}
+
 	eng := engine.NewSentryEngine(dets, detectorTimeout, logger)
 
 	// Auth — static authenticator (Phase 1)
