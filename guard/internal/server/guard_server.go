@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"strings"
 	"time"
 
@@ -50,7 +51,10 @@ func (s *GuardServer) Check(ctx context.Context, req *guardv1.CheckRequest) (*gu
 	// 1. Authenticate
 	project, err := s.auth.Authenticate(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "auth failed: %v", err)
+		if errors.Is(err, auth.ErrAuthUnavailable) {
+			return nil, status.Errorf(codes.Unavailable, "auth service unavailable: %v", err)
+		}
+		return nil, status.Errorf(codes.Unauthenticated, "invalid API key: %v", err)
 	}
 
 	// Use project_id from request if provided, otherwise from auth metadata

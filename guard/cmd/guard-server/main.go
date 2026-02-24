@@ -98,7 +98,6 @@ func main() {
 		authenticator = auth.NewPostgresAuthenticator(auth.PostgresAuthConfig{
 			DB:       db,
 			CacheTTL: time.Duration(cacheTTL) * time.Second,
-			FailOpen: true,
 			Logger:   logger,
 		})
 		logger.Info("postgres authenticator connected")

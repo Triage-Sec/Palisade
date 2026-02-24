@@ -61,7 +61,7 @@ func TestPostgresAuth_CacheMiss_ValidKey(t *testing.T) {
 		},
 	}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	project, err := auth.Authenticate(pgAuthedCtx())
 	if err != nil {
@@ -95,7 +95,7 @@ func TestPostgresAuth_CacheHit_NoDBCall(t *testing.T) {
 		},
 	}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	// First call — cache miss, hits DB
 	_, err := auth.Authenticate(pgAuthedCtx())
@@ -129,7 +129,7 @@ func TestPostgresAuth_CacheMiss_InvalidKey(t *testing.T) {
 		},
 	}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	// Use a different API key that won't match the bcrypt hash
 	md := metadata.Pairs(
@@ -148,57 +148,41 @@ func TestPostgresAuth_CacheMiss_InvalidKey(t *testing.T) {
 }
 
 func TestPostgresAuth_ProjectNotFound(t *testing.T) {
+	// The real sqlProjectStore converts sql.ErrNoRows → ErrInvalidAPIKey.
+	// The mock simulates that behavior.
 	store := &mockStore{
-		err: sql.ErrNoRows,
+		err: ErrInvalidAPIKey,
 	}
 	cache := NewAuthCache(1 * time.Minute)
-
-	// With fail_open=false, should return error
-	auth := newPostgresAuthenticatorWithStore(store, cache, false, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	_, err := auth.Authenticate(pgAuthedCtx())
 	if err == nil {
 		t.Fatal("expected error for project not found, got nil")
 	}
+	if !errors.Is(err, ErrInvalidAPIKey) {
+		t.Errorf("expected ErrInvalidAPIKey, got: %v", err)
+	}
 }
 
-func TestPostgresAuth_DBDown_FailOpen(t *testing.T) {
+func TestPostgresAuth_DBDown_ReturnsUnavailable(t *testing.T) {
 	store := &mockStore{
 		err: errors.New("connection refused"),
 	}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
-
-	project, err := auth.Authenticate(pgAuthedCtx())
-	if err != nil {
-		t.Fatalf("expected fail-open ALLOW, got error: %v", err)
-	}
-	if project.ProjectID != "proj_test_123" {
-		t.Errorf("expected project ID from metadata fallback, got %s", project.ProjectID)
-	}
-	if project.Mode != "enforce" {
-		t.Errorf("expected enforce mode on fail-open, got %s", project.Mode)
-	}
-	if project.Policy != nil {
-		t.Error("expected nil policy on fail-open")
-	}
-}
-
-func TestPostgresAuth_DBDown_FailClosed(t *testing.T) {
-	store := &mockStore{
-		err: errors.New("connection refused"),
-	}
-	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, false, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	_, err := auth.Authenticate(pgAuthedCtx())
 	if err == nil {
-		t.Fatal("expected error with fail_open=false, got nil")
+		t.Fatal("expected error when DB is down, got nil")
+	}
+	if !errors.Is(err, ErrAuthUnavailable) {
+		t.Errorf("expected ErrAuthUnavailable, got: %v", err)
 	}
 }
 
-func TestPostgresAuth_InvalidKey_NeverFailsOpen(t *testing.T) {
-	// Even with fail_open=true, an invalid API key (bcrypt mismatch) should be rejected
+func TestPostgresAuth_InvalidKey_AlwaysRejected(t *testing.T) {
+	// An invalid API key (bcrypt mismatch) should always be rejected
 	store := &mockStore{
 		row: &projectRow{
 			ProjectID:  "proj_abc",
@@ -208,7 +192,7 @@ func TestPostgresAuth_InvalidKey_NeverFailsOpen(t *testing.T) {
 		},
 	}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	md := metadata.Pairs(
 		"authorization", "Bearer tsk_wrong_key_doesnt_match_hash_at_all",
@@ -218,7 +202,7 @@ func TestPostgresAuth_InvalidKey_NeverFailsOpen(t *testing.T) {
 
 	_, err := auth.Authenticate(ctx)
 	if err == nil {
-		t.Fatal("expected error even with fail_open=true for invalid key")
+		t.Fatal("expected error for invalid key")
 	}
 	if !errors.Is(err, ErrInvalidAPIKey) {
 		t.Errorf("expected ErrInvalidAPIKey, got: %v", err)
@@ -240,7 +224,7 @@ func TestPostgresAuth_PolicyParsing(t *testing.T) {
 		},
 	}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	project, err := auth.Authenticate(pgAuthedCtx())
 	if err != nil {
@@ -290,7 +274,7 @@ func TestPostgresAuth_PolicyParsing_ToolAbuse(t *testing.T) {
 		},
 	}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	project, err := auth.Authenticate(pgAuthedCtx())
 	if err != nil {
@@ -320,7 +304,7 @@ func TestPostgresAuth_EmptyDetectorConfig(t *testing.T) {
 		},
 	}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	project, err := auth.Authenticate(pgAuthedCtx())
 	if err != nil {
@@ -346,7 +330,7 @@ func TestPostgresAuth_NullDetectorConfig(t *testing.T) {
 		},
 	}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	project, err := auth.Authenticate(pgAuthedCtx())
 	if err != nil {
@@ -372,7 +356,7 @@ func TestPostgresAuth_InvalidJSON_FallsBackToDefaults(t *testing.T) {
 		},
 	}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	// Should not fail — just use nil policy
 	project, err := auth.Authenticate(pgAuthedCtx())
@@ -387,7 +371,7 @@ func TestPostgresAuth_InvalidJSON_FallsBackToDefaults(t *testing.T) {
 func TestPostgresAuth_MissingAPIKey(t *testing.T) {
 	store := &mockStore{}
 	cache := NewAuthCache(1 * time.Minute)
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	// No auth metadata
 	_, err := auth.Authenticate(context.Background())
@@ -411,7 +395,7 @@ func TestPostgresAuth_StaleHit_ServesStaleAndRefreshes(t *testing.T) {
 		},
 	}
 	cache := NewAuthCache(1 * time.Millisecond) // Very short TTL
-	auth := newPostgresAuthenticatorWithStore(store, cache, true, zap.NewNop())
+	auth := newPostgresAuthenticatorWithStore(store, cache, zap.NewNop())
 
 	// First call — cache miss
 	project, err := auth.Authenticate(pgAuthedCtx())

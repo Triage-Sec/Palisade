@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -40,6 +41,9 @@ func (s *sqlProjectStore) LookupByPrefix(ctx context.Context, prefix string) (*p
 		prefix,
 	).Scan(&row.ProjectID, &row.APIKeyHash, &row.Mode, &row.FailOpen, &row.DetectorConfig)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrInvalidAPIKey // No project with this prefix — reject, don't fail open
+		}
 		return nil, fmt.Errorf("sqlProjectStore.LookupByPrefix: %w", err)
 	}
 	return row, nil
@@ -47,18 +51,18 @@ func (s *sqlProjectStore) LookupByPrefix(ctx context.Context, prefix string) (*p
 
 // PostgresAuthenticator validates API keys against the projects table.
 // Uses AuthCache with stale-while-revalidate to avoid DB + bcrypt on the hot path.
+// Auth failures always return an error — no detectors run without valid auth.
+// The SDK is responsible for fail-open behavior on its side.
 type PostgresAuthenticator struct {
-	store    ProjectStore
-	cache    *AuthCache
-	logger   *zap.Logger
-	failOpen bool
+	store  ProjectStore
+	cache  *AuthCache
+	logger *zap.Logger
 }
 
 // PostgresAuthConfig configures the PostgresAuthenticator.
 type PostgresAuthConfig struct {
 	DB       *sql.DB
 	CacheTTL time.Duration // Default: 30s
-	FailOpen bool          // Default: true
 	Logger   *zap.Logger
 }
 
@@ -69,20 +73,18 @@ func NewPostgresAuthenticator(cfg PostgresAuthConfig) *PostgresAuthenticator {
 		ttl = 30 * time.Second
 	}
 	return &PostgresAuthenticator{
-		store:    &sqlProjectStore{db: cfg.DB},
-		cache:    NewAuthCache(ttl),
-		logger:   cfg.Logger,
-		failOpen: cfg.FailOpen,
+		store:  &sqlProjectStore{db: cfg.DB},
+		cache:  NewAuthCache(ttl),
+		logger: cfg.Logger,
 	}
 }
 
 // newPostgresAuthenticatorWithStore creates an authenticator with an injected store (for testing).
-func newPostgresAuthenticatorWithStore(store ProjectStore, cache *AuthCache, failOpen bool, logger *zap.Logger) *PostgresAuthenticator {
+func newPostgresAuthenticatorWithStore(store ProjectStore, cache *AuthCache, logger *zap.Logger) *PostgresAuthenticator {
 	return &PostgresAuthenticator{
-		store:    store,
-		cache:    cache,
-		logger:   logger,
-		failOpen: failOpen,
+		store:  store,
+		cache:  cache,
+		logger: logger,
 	}
 }
 
@@ -185,31 +187,17 @@ func (a *PostgresAuthenticator) lookupAndVerify(ctx context.Context, apiKey stri
 	}, nil
 }
 
-// handleLookupError decides whether to fail open or return the error.
-func (a *PostgresAuthenticator) handleLookupError(ctx context.Context, lookupErr error) (*ProjectContext, error) {
-	// If the error is an invalid API key, never fail open — always reject
-	if lookupErr == ErrInvalidAPIKey {
-		return nil, lookupErr
+// handleLookupError returns the appropriate error — never runs detectors on auth failure.
+func (a *PostgresAuthenticator) handleLookupError(_ context.Context, lookupErr error) (*ProjectContext, error) {
+	if errors.Is(lookupErr, ErrInvalidAPIKey) {
+		return nil, ErrInvalidAPIKey
 	}
 
-	if !a.failOpen {
-		return nil, fmt.Errorf("authentication failed: %w", lookupErr)
-	}
-
-	// Fail open: return a degraded context with server defaults
-	a.logger.Warn("auth DB lookup failed, failing open",
+	// DB error (timeout, connection refused, etc.) — return unavailable
+	a.logger.Warn("auth DB unreachable",
 		zap.Error(lookupErr),
 	)
-
-	// Try to get project ID from x-project-id metadata as a fallback
-	projectID, _ := extractProjectID(ctx)
-
-	return &ProjectContext{
-		ProjectID: projectID,
-		Mode:      "enforce",
-		FailOpen:  true,
-		Policy:    nil, // Server defaults
-	}, nil
+	return nil, fmt.Errorf("%w: %v", ErrAuthUnavailable, lookupErr)
 }
 
 // parseDetectorConfig parses the detector_config JSON into a PolicyConfig map.

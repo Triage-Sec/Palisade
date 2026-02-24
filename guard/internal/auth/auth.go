@@ -13,6 +13,7 @@ var (
 	ErrMissingAPIKey    = errors.New("missing authorization header")
 	ErrInvalidAPIKey    = errors.New("invalid API key format")
 	ErrMissingProjectID = errors.New("missing x-project-id header")
+	ErrAuthUnavailable  = errors.New("auth service unavailable")
 )
 
 // ProjectContext holds the authenticated project's configuration.
