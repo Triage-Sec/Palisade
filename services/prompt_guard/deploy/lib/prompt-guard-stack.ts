@@ -1,5 +1,4 @@
 import * as cdk from "aws-cdk-lib";
-import * as autoscaling from "aws-cdk-lib/aws-autoscaling";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as ecs from "aws-cdk-lib/aws-ecs";
@@ -57,13 +56,24 @@ export class PromptGuardStack extends cdk.Stack {
     });
 
     // ---------------------------------------------------------------
-    // Auto Scaling Group — g4dn.xlarge for T4 GPU.
+    // Security Group — allow inbound gRPC on port 50052.
+    // ---------------------------------------------------------------
+    const sg = new ec2.SecurityGroup(this, "PromptGuardSg", {
+      vpc,
+      description:
+        "Allow inbound gRPC traffic to prompt guard service (internal)",
+      allowAllOutbound: true,
+    });
+    sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(50052), "gRPC internal");
+
+    // ---------------------------------------------------------------
+    // Single EC2 instance — g4dn.xlarge for T4 GPU.
     //
     // WHY EC2 (not Fargate):
     // Fargate does not support GPU instances. We need a T4 GPU for
     // fast ML inference (<15ms per classification).
     // ---------------------------------------------------------------
-    const asg = new autoscaling.AutoScalingGroup(this, "Asg", {
+    const instance = new ec2.Instance(this, "Instance", {
       vpc,
       instanceType: ec2.InstanceType.of(
         ec2.InstanceClass.G4DN,
@@ -72,22 +82,15 @@ export class PromptGuardStack extends cdk.Stack {
       machineImage: ecs.EcsOptimizedImage.amazonLinux2(
         ecs.AmiHardwareType.GPU
       ),
-      minCapacity: 1,
-      maxCapacity: 2,
+      securityGroup: sg,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       associatePublicIpAddress: true,
     });
 
-    const capacityProvider = new ecs.AsgCapacityProvider(
-      this,
-      "AsgCapacityProvider",
-      {
-        autoScalingGroup: asg,
-        enableManagedScaling: true,
-        enableManagedTerminationProtection: false,
-      }
+    // Join the ECS cluster
+    instance.addUserData(
+      `echo ECS_CLUSTER=${cluster.clusterName} >> /etc/ecs/ecs.config`
     );
-    cluster.addAsgCapacityProvider(capacityProvider);
 
     // ---------------------------------------------------------------
     // EC2 Task Definition — 4 vCPU / 14 GB + 1 GPU.
@@ -117,42 +120,25 @@ export class PromptGuardStack extends cdk.Stack {
         PROMPT_GUARD_MAX_WORKERS: "4",
         PROMPT_GUARD_MODEL_NAME:
           "qualifire/prompt-injection-jailbreak-sentinel-v2",
-        // NVIDIA runtime is auto-configured by the ECS GPU-optimized AMI.
       },
     });
 
+    // Grant the instance permission to pull from ECR and write logs
+    repo.grantPull(instance.role);
+    logGroup.grantWrite(instance.role);
+
     // ---------------------------------------------------------------
-    // ECS Service — EC2 launch type with GPU capacity provider.
+    // ECS Service — runs on the single EC2 instance.
     // ---------------------------------------------------------------
     const service = new ecs.Ec2Service(this, "Service", {
       cluster,
       serviceName: `palisade-prompt-guard-${envName}`,
       taskDefinition: taskDef,
       desiredCount: 1,
-      capacityProviderStrategies: [
-        {
-          capacityProvider: capacityProvider.capacityProviderName,
-          weight: 1,
-        },
-      ],
       circuitBreaker: { enable: true, rollback: true },
       minHealthyPercent: 0,
       maxHealthyPercent: 100,
     });
-
-    // ---------------------------------------------------------------
-    // Security Group — allow inbound gRPC on port 50052.
-    // Only the guard service should call this (internal NLB).
-    // ---------------------------------------------------------------
-    asg.addSecurityGroup(
-      new ec2.SecurityGroup(this, "PromptGuardSg", {
-        vpc,
-        description:
-          "Allow inbound gRPC traffic to prompt guard service (internal)",
-        allowAllOutbound: true,
-      })
-    );
-    asg.connections.allowFromAnyIpv4(ec2.Port.tcp(50052), "gRPC internal");
 
     // ---------------------------------------------------------------
     // NLB — Internal Network Load Balancer.
