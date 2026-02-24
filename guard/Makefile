@@ -9,7 +9,7 @@ BUILD_DIR := bin
 PROTO_DIR := ../proto
 GEN_DIR := gen
 
-.PHONY: proto build test bench lint docker run migrate-up migrate-down migrate-create
+.PHONY: proto proto-prompt-guard build test bench lint docker run migrate-up migrate-down migrate-create
 
 ## — Build & Run —
 
@@ -27,6 +27,13 @@ proto:
 		--go-grpc_out=$(GEN_DIR) --go-grpc_opt=paths=source_relative \
 		-I $(PROTO_DIR) \
 		$(PROTO_DIR)/guard/v1/guard.proto
+
+proto-prompt-guard:
+	protoc \
+		--go_out=$(GEN_DIR) --go_opt=paths=source_relative \
+		--go-grpc_out=$(GEN_DIR) --go-grpc_opt=paths=source_relative \
+		-I $(PROTO_DIR) \
+		$(PROTO_DIR)/prompt_guard/v1/prompt_guard.proto
 
 ## — Test —
 

@@ -1,0 +1,64 @@
+name: Prompt Guard CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/prompt_guard/**"
+      - "proto/prompt_guard/**"
+      - ".github/workflows/prompt-guard-ci.yml"
+  pull_request:
+    paths:
+      - "services/prompt_guard/**"
+      - "proto/prompt_guard/**"
+      - ".github/workflows/prompt-guard-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: services/prompt_guard
+        run: |
+          pip install -e ".[dev]"
+          pip install grpcio-health-checking grpcio-reflection
+
+      - name: Generate proto stubs
+        working-directory: services/prompt_guard
+        run: make proto
+
+      - name: Lint
+        working-directory: services/prompt_guard
+        run: ruff check src/ tests/ --exclude src/prompt_guard/gen
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: services/prompt_guard
+        run: |
+          pip install -e ".[dev]"
+          pip install grpcio-health-checking grpcio-reflection
+
+      - name: Generate proto stubs
+        working-directory: services/prompt_guard
+        run: make proto
+
+      - name: Run tests
+        working-directory: services/prompt_guard
+        run: python -m pytest tests/ -v
