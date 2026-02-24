@@ -51,14 +51,16 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --from=builder /build/src/ ./src/
 
 # Pre-download model during build for fast cold starts.
-# HF_TOKEN is passed as a build arg (--build-arg HF_TOKEN=...) and NOT persisted in the final image.
-ARG HF_TOKEN
+# HF_TOKEN is passed as a build arg (--build-arg HF_TOKEN=...).
+# If not set, model download is skipped (container will download on first start).
+ARG HF_TOKEN=""
 ENV HF_HOME=/app/.cache/huggingface
-RUN --mount=type=secret,id=HF_TOKEN \
-    HF_TOKEN="${HF_TOKEN}" python -c "\
+RUN if [ -n "$HF_TOKEN" ]; then \
+    HF_TOKEN="$HF_TOKEN" python -c "\
 from transformers import AutoModelForSequenceClassification, AutoTokenizer; \
 AutoTokenizer.from_pretrained('qualifire/prompt-injection-jailbreak-sentinel-v2'); \
-AutoModelForSequenceClassification.from_pretrained('qualifire/prompt-injection-jailbreak-sentinel-v2')"
+AutoModelForSequenceClassification.from_pretrained('qualifire/prompt-injection-jailbreak-sentinel-v2')"; \
+    else echo "HF_TOKEN not set, skipping model pre-download"; fi
 
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
