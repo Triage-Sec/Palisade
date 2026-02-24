@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
 	"net"
 	"os"
@@ -11,10 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib" // Register pgx as database/sql driver
-
 	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
-	"github.com/triage-ai/palisade/internal/auth"
 	"github.com/triage-ai/palisade/internal/engine"
 	"github.com/triage-ai/palisade/internal/engine/detectors"
 	"github.com/triage-ai/palisade/internal/server"
@@ -39,8 +34,6 @@ func main() {
 	blockThreshold := envOrDefaultFloat("GUARD_BLOCK_THRESHOLD", 0.8)
 	flagThreshold := envOrDefaultFloat("GUARD_FLAG_THRESHOLD", 0.0)
 	clickhouseDSN := os.Getenv("CLICKHOUSE_DSN")
-	postgresDSN := os.Getenv("POSTGRES_DSN")
-	cacheTTL := envOrDefaultInt("GUARD_AUTH_CACHE_TTL_S", 30)
 
 	detectorTimeout := time.Duration(detectorTimeoutMs) * time.Millisecond
 
@@ -80,31 +73,6 @@ func main() {
 	}
 
 	eng := engine.NewSentryEngine(dets, detectorTimeout, logger)
-
-	// Auth — Postgres if DSN provided, otherwise static (backward compatible)
-	var authenticator auth.Authenticator
-	if postgresDSN != "" {
-		db, err := sql.Open("pgx", postgresDSN)
-		if err != nil {
-			logger.Fatal("failed to open postgres", zap.Error(err))
-		}
-		defer db.Close() //nolint:errcheck // best-effort cleanup at shutdown
-		db.SetMaxOpenConns(10)
-		db.SetMaxIdleConns(5)
-		db.SetConnMaxLifetime(5 * time.Minute)
-		if err := db.PingContext(context.Background()); err != nil {
-			logger.Fatal("failed to ping postgres", zap.Error(err))
-		}
-		authenticator = auth.NewPostgresAuthenticator(auth.PostgresAuthConfig{
-			DB:       db,
-			CacheTTL: time.Duration(cacheTTL) * time.Second,
-			Logger:   logger,
-		})
-		logger.Info("postgres authenticator connected")
-	} else {
-		authenticator = auth.NewStaticAuthenticator()
-		logger.Info("using static authenticator (no POSTGRES_DSN)")
-	}
 
 	// Storage — ClickHouse or LogWriter fallback
 	var writer storage.EventWriter
@@ -149,7 +117,7 @@ func main() {
 	)
 
 	// Register guard service
-	guardServer := server.NewGuardServer(eng, authenticator, writer, aggCfg, logger)
+	guardServer := server.NewGuardServer(eng, writer, aggCfg, logger)
 	guardv1.RegisterGuardServiceServer(grpcServer, guardServer)
 
 	// Register health service for ECS health checks

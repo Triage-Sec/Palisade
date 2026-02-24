@@ -3,25 +3,20 @@ package server
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
-	"github.com/triage-ai/palisade/internal/auth"
 	"github.com/triage-ai/palisade/internal/engine"
 	"github.com/triage-ai/palisade/internal/storage"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // GuardServer implements the GuardService gRPC service.
 type GuardServer struct {
 	guardv1.UnimplementedGuardServiceServer
 	engine *engine.SentryEngine
-	auth   auth.Authenticator
 	writer storage.EventWriter
 	aggCfg engine.AggregatorConfig
 	logger *zap.Logger
@@ -30,14 +25,12 @@ type GuardServer struct {
 // NewGuardServer creates a new GuardServer with the given dependencies.
 func NewGuardServer(
 	eng *engine.SentryEngine,
-	authenticator auth.Authenticator,
 	writer storage.EventWriter,
 	aggCfg engine.AggregatorConfig,
 	logger *zap.Logger,
 ) *GuardServer {
 	return &GuardServer{
 		engine: eng,
-		auth:   authenticator,
 		writer: writer,
 		aggCfg: aggCfg,
 		logger: logger,
@@ -45,23 +38,15 @@ func NewGuardServer(
 }
 
 // Check implements the GuardService.Check RPC.
+// Guard is a pure stateless compute engine: the caller sends the project context
+// (mode, policy) inline. No authentication is performed here.
 func (s *GuardServer) Check(ctx context.Context, req *guardv1.CheckRequest) (*guardv1.CheckResponse, error) {
 	start := time.Now()
 
-	// 1. Authenticate
-	project, err := s.auth.Authenticate(ctx)
-	if err != nil {
-		if errors.Is(err, auth.ErrAuthUnavailable) {
-			return nil, status.Errorf(codes.Unavailable, "auth service unavailable: %v", err)
-		}
-		return nil, status.Errorf(codes.Unauthenticated, "invalid API key: %v", err)
-	}
-
-	// Use project_id from request if provided, otherwise from auth metadata
+	// 1. Extract project context from request (caller is responsible for auth)
 	projectID := req.ProjectId
-	if projectID == "" {
-		projectID = project.ProjectID
-	}
+	mode := protoModeToString(req.Mode)
+	policy := protoToEnginePolicy(req.Policy)
 
 	// 2. Build detect request
 	detectReq := &engine.DetectRequest{
@@ -71,16 +56,16 @@ func (s *GuardServer) Check(ctx context.Context, req *guardv1.CheckRequest) (*gu
 	}
 
 	// 3. Fan-out to all detectors (policy filters disabled detectors + sets tool lists)
-	detectorResults, _ := s.engine.Evaluate(ctx, detectReq, project.Policy)
+	detectorResults, _ := s.engine.Evaluate(ctx, detectReq, policy)
 
 	// 4. Aggregate results into verdict (per-detector thresholds from policy)
-	aggResult := engine.AggregateWithPolicy(detectorResults, s.aggCfg, project.Policy)
+	aggResult := engine.AggregateWithPolicy(detectorResults, s.aggCfg, policy)
 	realVerdict := aggResult.Verdict
 
 	// 5. Shadow mode: log the real verdict to ClickHouse but return ALLOW to the client.
 	responseVerdict := realVerdict
 	isShadow := false
-	if project.Mode == "shadow" && realVerdict != guardv1.Verdict_VERDICT_ALLOW {
+	if mode == "shadow" && realVerdict != guardv1.Verdict_VERDICT_ALLOW {
 		isShadow = true
 		responseVerdict = guardv1.Verdict_VERDICT_ALLOW
 	}
@@ -103,9 +88,45 @@ func (s *GuardServer) Check(ctx context.Context, req *guardv1.CheckRequest) (*gu
 	}, nil
 }
 
-// CheckBatch is not implemented in Phase 1.
-func (s *GuardServer) CheckBatch(req *guardv1.CheckBatchRequest, stream guardv1.GuardService_CheckBatchServer) error {
-	return status.Errorf(codes.Unimplemented, "CheckBatch is not implemented yet")
+// CheckBatch is not implemented yet.
+func (s *GuardServer) CheckBatch(_ *guardv1.CheckBatchRequest, _ guardv1.GuardService_CheckBatchServer) error {
+	return nil
+}
+
+// protoToEnginePolicy converts the proto PolicyConfigProto to the internal engine.PolicyConfig.
+// Returns nil if the proto policy is nil or empty (server defaults apply).
+func protoToEnginePolicy(p *guardv1.PolicyConfigProto) *engine.PolicyConfig {
+	if p == nil || len(p.Detectors) == 0 {
+		return nil
+	}
+	detectors := make(map[string]engine.DetectorPolicy, len(p.Detectors))
+	for name, dp := range p.Detectors {
+		edp := engine.DetectorPolicy{
+			AllowedTools: dp.AllowedTools,
+			BlockedTools: dp.BlockedTools,
+		}
+		if dp.Enabled != nil {
+			edp.Enabled = dp.Enabled
+		}
+		if dp.BlockThreshold != nil {
+			v := *dp.BlockThreshold
+			edp.BlockThreshold = &v
+		}
+		if dp.FlagThreshold != nil {
+			v := *dp.FlagThreshold
+			edp.FlagThreshold = &v
+		}
+		detectors[name] = edp
+	}
+	return &engine.PolicyConfig{Detectors: detectors}
+}
+
+// protoModeToString converts the proto ProjectMode enum to the string used internally.
+func protoModeToString(m guardv1.ProjectMode) string {
+	if m == guardv1.ProjectMode_PROJECT_MODE_SHADOW {
+		return "shadow"
+	}
+	return "enforce"
 }
 
 func (s *GuardServer) writeEvent(

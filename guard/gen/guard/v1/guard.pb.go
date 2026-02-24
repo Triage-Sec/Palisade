@@ -207,6 +207,178 @@ func (ThreatCategory) EnumDescriptor() ([]byte, []int) {
 	return file_guard_v1_guard_proto_rawDescGZIP(), []int{2}
 }
 
+// Project operating mode — sent by the caller.
+type ProjectMode int32
+
+const (
+	ProjectMode_PROJECT_MODE_UNSPECIFIED ProjectMode = 0 // Treated as ENFORCE
+	ProjectMode_PROJECT_MODE_ENFORCE     ProjectMode = 1
+	ProjectMode_PROJECT_MODE_SHADOW      ProjectMode = 2
+)
+
+// Enum value maps for ProjectMode.
+var (
+	ProjectMode_name = map[int32]string{
+		0: "PROJECT_MODE_UNSPECIFIED",
+		1: "PROJECT_MODE_ENFORCE",
+		2: "PROJECT_MODE_SHADOW",
+	}
+	ProjectMode_value = map[string]int32{
+		"PROJECT_MODE_UNSPECIFIED": 0,
+		"PROJECT_MODE_ENFORCE":     1,
+		"PROJECT_MODE_SHADOW":      2,
+	}
+)
+
+func (x ProjectMode) Enum() *ProjectMode {
+	p := new(ProjectMode)
+	*p = x
+	return p
+}
+
+func (x ProjectMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ProjectMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_guard_v1_guard_proto_enumTypes[3].Descriptor()
+}
+
+func (ProjectMode) Type() protoreflect.EnumType {
+	return &file_guard_v1_guard_proto_enumTypes[3]
+}
+
+func (x ProjectMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ProjectMode.Descriptor instead.
+func (ProjectMode) EnumDescriptor() ([]byte, []int) {
+	return file_guard_v1_guard_proto_rawDescGZIP(), []int{3}
+}
+
+// Per-detector policy. Omitted fields use server defaults.
+type DetectorPolicyProto struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Enabled        *bool                  `protobuf:"varint,1,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`                                      // nil = true (all detectors on by default)
+	BlockThreshold *float32               `protobuf:"fixed32,2,opt,name=block_threshold,json=blockThreshold,proto3,oneof" json:"block_threshold,omitempty"` // nil = use server default (0.8)
+	FlagThreshold  *float32               `protobuf:"fixed32,3,opt,name=flag_threshold,json=flagThreshold,proto3,oneof" json:"flag_threshold,omitempty"`    // nil = use server default (0.0)
+	AllowedTools   []string               `protobuf:"bytes,4,rep,name=allowed_tools,json=allowedTools,proto3" json:"allowed_tools,omitempty"`               // tool_abuse only
+	BlockedTools   []string               `protobuf:"bytes,5,rep,name=blocked_tools,json=blockedTools,proto3" json:"blocked_tools,omitempty"`               // tool_abuse only
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *DetectorPolicyProto) Reset() {
+	*x = DetectorPolicyProto{}
+	mi := &file_guard_v1_guard_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DetectorPolicyProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DetectorPolicyProto) ProtoMessage() {}
+
+func (x *DetectorPolicyProto) ProtoReflect() protoreflect.Message {
+	mi := &file_guard_v1_guard_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DetectorPolicyProto.ProtoReflect.Descriptor instead.
+func (*DetectorPolicyProto) Descriptor() ([]byte, []int) {
+	return file_guard_v1_guard_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *DetectorPolicyProto) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return false
+}
+
+func (x *DetectorPolicyProto) GetBlockThreshold() float32 {
+	if x != nil && x.BlockThreshold != nil {
+		return *x.BlockThreshold
+	}
+	return 0
+}
+
+func (x *DetectorPolicyProto) GetFlagThreshold() float32 {
+	if x != nil && x.FlagThreshold != nil {
+		return *x.FlagThreshold
+	}
+	return 0
+}
+
+func (x *DetectorPolicyProto) GetAllowedTools() []string {
+	if x != nil {
+		return x.AllowedTools
+	}
+	return nil
+}
+
+func (x *DetectorPolicyProto) GetBlockedTools() []string {
+	if x != nil {
+		return x.BlockedTools
+	}
+	return nil
+}
+
+// Inline policy configuration. Keys are detector names.
+type PolicyConfigProto struct {
+	state         protoimpl.MessageState          `protogen:"open.v1"`
+	Detectors     map[string]*DetectorPolicyProto `protobuf:"bytes,1,rep,name=detectors,proto3" json:"detectors,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PolicyConfigProto) Reset() {
+	*x = PolicyConfigProto{}
+	mi := &file_guard_v1_guard_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PolicyConfigProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PolicyConfigProto) ProtoMessage() {}
+
+func (x *PolicyConfigProto) ProtoReflect() protoreflect.Message {
+	mi := &file_guard_v1_guard_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PolicyConfigProto.ProtoReflect.Descriptor instead.
+func (*PolicyConfigProto) Descriptor() ([]byte, []int) {
+	return file_guard_v1_guard_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *PolicyConfigProto) GetDetectors() map[string]*DetectorPolicyProto {
+	if x != nil {
+		return x.Detectors
+	}
+	return nil
+}
+
 type CheckRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The content to screen. JSON-serialized if dict/list.
@@ -222,14 +394,18 @@ type CheckRequest struct {
 	// Arbitrary key-value metadata for custom rules.
 	Metadata map[string]string `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Project ID (also in gRPC metadata, duplicated here for logging).
-	ProjectId     string `protobuf:"bytes,7,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	ProjectId string `protobuf:"bytes,7,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	// Project mode (enforce/shadow). Unspecified = enforce.
+	Mode ProjectMode `protobuf:"varint,8,opt,name=mode,proto3,enum=triage.guard.v1.ProjectMode" json:"mode,omitempty"`
+	// Inline detector policy. nil/empty = all detectors with server defaults.
+	Policy        *PolicyConfigProto `protobuf:"bytes,9,opt,name=policy,proto3" json:"policy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CheckRequest) Reset() {
 	*x = CheckRequest{}
-	mi := &file_guard_v1_guard_proto_msgTypes[0]
+	mi := &file_guard_v1_guard_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -241,7 +417,7 @@ func (x *CheckRequest) String() string {
 func (*CheckRequest) ProtoMessage() {}
 
 func (x *CheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_guard_v1_guard_proto_msgTypes[0]
+	mi := &file_guard_v1_guard_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -254,7 +430,7 @@ func (x *CheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckRequest.ProtoReflect.Descriptor instead.
 func (*CheckRequest) Descriptor() ([]byte, []int) {
-	return file_guard_v1_guard_proto_rawDescGZIP(), []int{0}
+	return file_guard_v1_guard_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CheckRequest) GetPayload() string {
@@ -306,6 +482,20 @@ func (x *CheckRequest) GetProjectId() string {
 	return ""
 }
 
+func (x *CheckRequest) GetMode() ProjectMode {
+	if x != nil {
+		return x.Mode
+	}
+	return ProjectMode_PROJECT_MODE_UNSPECIFIED
+}
+
+func (x *CheckRequest) GetPolicy() *PolicyConfigProto {
+	if x != nil {
+		return x.Policy
+	}
+	return nil
+}
+
 type CheckResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The enforcement verdict.
@@ -326,7 +516,7 @@ type CheckResponse struct {
 
 func (x *CheckResponse) Reset() {
 	*x = CheckResponse{}
-	mi := &file_guard_v1_guard_proto_msgTypes[1]
+	mi := &file_guard_v1_guard_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -338,7 +528,7 @@ func (x *CheckResponse) String() string {
 func (*CheckResponse) ProtoMessage() {}
 
 func (x *CheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_guard_v1_guard_proto_msgTypes[1]
+	mi := &file_guard_v1_guard_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -351,7 +541,7 @@ func (x *CheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckResponse.ProtoReflect.Descriptor instead.
 func (*CheckResponse) Descriptor() ([]byte, []int) {
-	return file_guard_v1_guard_proto_rawDescGZIP(), []int{1}
+	return file_guard_v1_guard_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CheckResponse) GetVerdict() Verdict {
@@ -414,7 +604,7 @@ type DetectorResult struct {
 
 func (x *DetectorResult) Reset() {
 	*x = DetectorResult{}
-	mi := &file_guard_v1_guard_proto_msgTypes[2]
+	mi := &file_guard_v1_guard_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -426,7 +616,7 @@ func (x *DetectorResult) String() string {
 func (*DetectorResult) ProtoMessage() {}
 
 func (x *DetectorResult) ProtoReflect() protoreflect.Message {
-	mi := &file_guard_v1_guard_proto_msgTypes[2]
+	mi := &file_guard_v1_guard_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -439,7 +629,7 @@ func (x *DetectorResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DetectorResult.ProtoReflect.Descriptor instead.
 func (*DetectorResult) Descriptor() ([]byte, []int) {
-	return file_guard_v1_guard_proto_rawDescGZIP(), []int{2}
+	return file_guard_v1_guard_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DetectorResult) GetDetector() string {
@@ -488,7 +678,7 @@ type Identity struct {
 
 func (x *Identity) Reset() {
 	*x = Identity{}
-	mi := &file_guard_v1_guard_proto_msgTypes[3]
+	mi := &file_guard_v1_guard_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -500,7 +690,7 @@ func (x *Identity) String() string {
 func (*Identity) ProtoMessage() {}
 
 func (x *Identity) ProtoReflect() protoreflect.Message {
-	mi := &file_guard_v1_guard_proto_msgTypes[3]
+	mi := &file_guard_v1_guard_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -513,7 +703,7 @@ func (x *Identity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Identity.ProtoReflect.Descriptor instead.
 func (*Identity) Descriptor() ([]byte, []int) {
-	return file_guard_v1_guard_proto_rawDescGZIP(), []int{3}
+	return file_guard_v1_guard_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Identity) GetUserId() string {
@@ -547,7 +737,7 @@ type ToolCall struct {
 
 func (x *ToolCall) Reset() {
 	*x = ToolCall{}
-	mi := &file_guard_v1_guard_proto_msgTypes[4]
+	mi := &file_guard_v1_guard_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -559,7 +749,7 @@ func (x *ToolCall) String() string {
 func (*ToolCall) ProtoMessage() {}
 
 func (x *ToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_guard_v1_guard_proto_msgTypes[4]
+	mi := &file_guard_v1_guard_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -572,7 +762,7 @@ func (x *ToolCall) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCall.ProtoReflect.Descriptor instead.
 func (*ToolCall) Descriptor() ([]byte, []int) {
-	return file_guard_v1_guard_proto_rawDescGZIP(), []int{4}
+	return file_guard_v1_guard_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ToolCall) GetFunctionName() string {
@@ -598,7 +788,7 @@ type CheckBatchRequest struct {
 
 func (x *CheckBatchRequest) Reset() {
 	*x = CheckBatchRequest{}
-	mi := &file_guard_v1_guard_proto_msgTypes[5]
+	mi := &file_guard_v1_guard_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -610,7 +800,7 @@ func (x *CheckBatchRequest) String() string {
 func (*CheckBatchRequest) ProtoMessage() {}
 
 func (x *CheckBatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_guard_v1_guard_proto_msgTypes[5]
+	mi := &file_guard_v1_guard_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -623,7 +813,7 @@ func (x *CheckBatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckBatchRequest.ProtoReflect.Descriptor instead.
 func (*CheckBatchRequest) Descriptor() ([]byte, []int) {
-	return file_guard_v1_guard_proto_rawDescGZIP(), []int{5}
+	return file_guard_v1_guard_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CheckBatchRequest) GetRequests() []*CheckRequest {
@@ -637,7 +827,22 @@ var File_guard_v1_guard_proto protoreflect.FileDescriptor
 
 const file_guard_v1_guard_proto_rawDesc = "" +
 	"\n" +
-	"\x14guard/v1/guard.proto\x12\x0ftriage.guard.v1\"\x99\x03\n" +
+	"\x14guard/v1/guard.proto\x12\x0ftriage.guard.v1\"\x8b\x02\n" +
+	"\x13DetectorPolicyProto\x12\x1d\n" +
+	"\aenabled\x18\x01 \x01(\bH\x00R\aenabled\x88\x01\x01\x12,\n" +
+	"\x0fblock_threshold\x18\x02 \x01(\x02H\x01R\x0eblockThreshold\x88\x01\x01\x12*\n" +
+	"\x0eflag_threshold\x18\x03 \x01(\x02H\x02R\rflagThreshold\x88\x01\x01\x12#\n" +
+	"\rallowed_tools\x18\x04 \x03(\tR\fallowedTools\x12#\n" +
+	"\rblocked_tools\x18\x05 \x03(\tR\fblockedToolsB\n" +
+	"\n" +
+	"\b_enabledB\x12\n" +
+	"\x10_block_thresholdB\x11\n" +
+	"\x0f_flag_threshold\"\xc8\x01\n" +
+	"\x11PolicyConfigProto\x12O\n" +
+	"\tdetectors\x18\x01 \x03(\v21.triage.guard.v1.PolicyConfigProto.DetectorsEntryR\tdetectors\x1ab\n" +
+	"\x0eDetectorsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12:\n" +
+	"\x05value\x18\x02 \x01(\v2$.triage.guard.v1.DetectorPolicyProtoR\x05value:\x028\x01\"\x87\x04\n" +
 	"\fCheckRequest\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\tR\apayload\x123\n" +
 	"\x06action\x18\x02 \x01(\x0e2\x1b.triage.guard.v1.ActionTypeR\x06action\x125\n" +
@@ -646,7 +851,9 @@ const file_guard_v1_guard_proto_rawDesc = "" +
 	"\ttool_call\x18\x05 \x01(\v2\x19.triage.guard.v1.ToolCallR\btoolCall\x12G\n" +
 	"\bmetadata\x18\x06 \x03(\v2+.triage.guard.v1.CheckRequest.MetadataEntryR\bmetadata\x12\x1d\n" +
 	"\n" +
-	"project_id\x18\a \x01(\tR\tprojectId\x1a;\n" +
+	"project_id\x18\a \x01(\tR\tprojectId\x120\n" +
+	"\x04mode\x18\b \x01(\x0e2\x1c.triage.guard.v1.ProjectModeR\x04mode\x12:\n" +
+	"\x06policy\x18\t \x01(\v2\".triage.guard.v1.PolicyConfigProtoR\x06policy\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf5\x01\n" +
@@ -701,7 +908,11 @@ const file_guard_v1_guard_proto_rawDesc = "" +
 	"\"THREAT_CATEGORY_CONTENT_MODERATION\x10\x04\x12\x1e\n" +
 	"\x1aTHREAT_CATEGORY_TOOL_ABUSE\x10\x05\x12%\n" +
 	"!THREAT_CATEGORY_DATA_EXFILTRATION\x10\x06\x12\x1f\n" +
-	"\x1bTHREAT_CATEGORY_CUSTOM_RULE\x10\a2\xaa\x01\n" +
+	"\x1bTHREAT_CATEGORY_CUSTOM_RULE\x10\a*^\n" +
+	"\vProjectMode\x12\x1c\n" +
+	"\x18PROJECT_MODE_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14PROJECT_MODE_ENFORCE\x10\x01\x12\x17\n" +
+	"\x13PROJECT_MODE_SHADOW\x10\x022\xaa\x01\n" +
 	"\fGuardService\x12F\n" +
 	"\x05Check\x12\x1d.triage.guard.v1.CheckRequest\x1a\x1e.triage.guard.v1.CheckResponse\x12R\n" +
 	"\n" +
@@ -719,38 +930,46 @@ func file_guard_v1_guard_proto_rawDescGZIP() []byte {
 	return file_guard_v1_guard_proto_rawDescData
 }
 
-var file_guard_v1_guard_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_guard_v1_guard_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_guard_v1_guard_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_guard_v1_guard_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_guard_v1_guard_proto_goTypes = []any{
-	(ActionType)(0),           // 0: triage.guard.v1.ActionType
-	(Verdict)(0),              // 1: triage.guard.v1.Verdict
-	(ThreatCategory)(0),       // 2: triage.guard.v1.ThreatCategory
-	(*CheckRequest)(nil),      // 3: triage.guard.v1.CheckRequest
-	(*CheckResponse)(nil),     // 4: triage.guard.v1.CheckResponse
-	(*DetectorResult)(nil),    // 5: triage.guard.v1.DetectorResult
-	(*Identity)(nil),          // 6: triage.guard.v1.Identity
-	(*ToolCall)(nil),          // 7: triage.guard.v1.ToolCall
-	(*CheckBatchRequest)(nil), // 8: triage.guard.v1.CheckBatchRequest
-	nil,                       // 9: triage.guard.v1.CheckRequest.MetadataEntry
+	(ActionType)(0),             // 0: triage.guard.v1.ActionType
+	(Verdict)(0),                // 1: triage.guard.v1.Verdict
+	(ThreatCategory)(0),         // 2: triage.guard.v1.ThreatCategory
+	(ProjectMode)(0),            // 3: triage.guard.v1.ProjectMode
+	(*DetectorPolicyProto)(nil), // 4: triage.guard.v1.DetectorPolicyProto
+	(*PolicyConfigProto)(nil),   // 5: triage.guard.v1.PolicyConfigProto
+	(*CheckRequest)(nil),        // 6: triage.guard.v1.CheckRequest
+	(*CheckResponse)(nil),       // 7: triage.guard.v1.CheckResponse
+	(*DetectorResult)(nil),      // 8: triage.guard.v1.DetectorResult
+	(*Identity)(nil),            // 9: triage.guard.v1.Identity
+	(*ToolCall)(nil),            // 10: triage.guard.v1.ToolCall
+	(*CheckBatchRequest)(nil),   // 11: triage.guard.v1.CheckBatchRequest
+	nil,                         // 12: triage.guard.v1.PolicyConfigProto.DetectorsEntry
+	nil,                         // 13: triage.guard.v1.CheckRequest.MetadataEntry
 }
 var file_guard_v1_guard_proto_depIdxs = []int32{
-	0,  // 0: triage.guard.v1.CheckRequest.action:type_name -> triage.guard.v1.ActionType
-	6,  // 1: triage.guard.v1.CheckRequest.identity:type_name -> triage.guard.v1.Identity
-	7,  // 2: triage.guard.v1.CheckRequest.tool_call:type_name -> triage.guard.v1.ToolCall
-	9,  // 3: triage.guard.v1.CheckRequest.metadata:type_name -> triage.guard.v1.CheckRequest.MetadataEntry
-	1,  // 4: triage.guard.v1.CheckResponse.verdict:type_name -> triage.guard.v1.Verdict
-	5,  // 5: triage.guard.v1.CheckResponse.detectors:type_name -> triage.guard.v1.DetectorResult
-	2,  // 6: triage.guard.v1.DetectorResult.category:type_name -> triage.guard.v1.ThreatCategory
-	3,  // 7: triage.guard.v1.CheckBatchRequest.requests:type_name -> triage.guard.v1.CheckRequest
-	3,  // 8: triage.guard.v1.GuardService.Check:input_type -> triage.guard.v1.CheckRequest
-	8,  // 9: triage.guard.v1.GuardService.CheckBatch:input_type -> triage.guard.v1.CheckBatchRequest
-	4,  // 10: triage.guard.v1.GuardService.Check:output_type -> triage.guard.v1.CheckResponse
-	4,  // 11: triage.guard.v1.GuardService.CheckBatch:output_type -> triage.guard.v1.CheckResponse
-	10, // [10:12] is the sub-list for method output_type
-	8,  // [8:10] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	12, // 0: triage.guard.v1.PolicyConfigProto.detectors:type_name -> triage.guard.v1.PolicyConfigProto.DetectorsEntry
+	0,  // 1: triage.guard.v1.CheckRequest.action:type_name -> triage.guard.v1.ActionType
+	9,  // 2: triage.guard.v1.CheckRequest.identity:type_name -> triage.guard.v1.Identity
+	10, // 3: triage.guard.v1.CheckRequest.tool_call:type_name -> triage.guard.v1.ToolCall
+	13, // 4: triage.guard.v1.CheckRequest.metadata:type_name -> triage.guard.v1.CheckRequest.MetadataEntry
+	3,  // 5: triage.guard.v1.CheckRequest.mode:type_name -> triage.guard.v1.ProjectMode
+	5,  // 6: triage.guard.v1.CheckRequest.policy:type_name -> triage.guard.v1.PolicyConfigProto
+	1,  // 7: triage.guard.v1.CheckResponse.verdict:type_name -> triage.guard.v1.Verdict
+	8,  // 8: triage.guard.v1.CheckResponse.detectors:type_name -> triage.guard.v1.DetectorResult
+	2,  // 9: triage.guard.v1.DetectorResult.category:type_name -> triage.guard.v1.ThreatCategory
+	6,  // 10: triage.guard.v1.CheckBatchRequest.requests:type_name -> triage.guard.v1.CheckRequest
+	4,  // 11: triage.guard.v1.PolicyConfigProto.DetectorsEntry.value:type_name -> triage.guard.v1.DetectorPolicyProto
+	6,  // 12: triage.guard.v1.GuardService.Check:input_type -> triage.guard.v1.CheckRequest
+	11, // 13: triage.guard.v1.GuardService.CheckBatch:input_type -> triage.guard.v1.CheckBatchRequest
+	7,  // 14: triage.guard.v1.GuardService.Check:output_type -> triage.guard.v1.CheckResponse
+	7,  // 15: triage.guard.v1.GuardService.CheckBatch:output_type -> triage.guard.v1.CheckResponse
+	14, // [14:16] is the sub-list for method output_type
+	12, // [12:14] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_guard_v1_guard_proto_init() }
@@ -758,13 +977,14 @@ func file_guard_v1_guard_proto_init() {
 	if File_guard_v1_guard_proto != nil {
 		return
 	}
+	file_guard_v1_guard_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_guard_v1_guard_proto_rawDesc), len(file_guard_v1_guard_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   7,
+			NumEnums:      4,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

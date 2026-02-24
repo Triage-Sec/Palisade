@@ -55,6 +55,27 @@ enum ThreatCategory {
     THREAT_CATEGORY_CUSTOM_RULE = 7;
 }
 
+// Project operating mode — sent by the caller.
+enum ProjectMode {
+    PROJECT_MODE_UNSPECIFIED = 0;  // Treated as ENFORCE
+    PROJECT_MODE_ENFORCE = 1;
+    PROJECT_MODE_SHADOW = 2;
+}
+
+// Per-detector policy. Omitted fields use server defaults.
+message DetectorPolicyProto {
+    optional bool   enabled         = 1;  // nil = true (all detectors on by default)
+    optional float  block_threshold = 2;  // nil = use server default (0.8)
+    optional float  flag_threshold  = 3;  // nil = use server default (0.0)
+    repeated string allowed_tools   = 4;  // tool_abuse only
+    repeated string blocked_tools   = 5;  // tool_abuse only
+}
+
+// Inline policy configuration. Keys are detector names.
+message PolicyConfigProto {
+    map<string, DetectorPolicyProto> detectors = 1;
+}
+
 // ==========================================================================
 // Request / Response Messages
 // ==========================================================================
@@ -80,6 +101,12 @@ message CheckRequest {
 
     // Project ID (also in gRPC metadata, duplicated here for logging).
     string project_id = 7;
+
+    // Project mode (enforce/shadow). Unspecified = enforce.
+    ProjectMode mode = 8;
+
+    // Inline detector policy. nil/empty = all detectors with server defaults.
+    PolicyConfigProto policy = 9;
 }
 
 message CheckResponse {
