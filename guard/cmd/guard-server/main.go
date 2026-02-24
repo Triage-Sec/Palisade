@@ -54,12 +54,11 @@ func main() {
 	}
 
 	// ML detector — conditional on PROMPT_GUARD_ENDPOINT being set.
-	// When enabled, increase detector timeout to accommodate network round-trip + inference.
+	// Connects to the prompt_guard gRPC service (e.g. "18.144.167.163:50052").
 	if endpoint := os.Getenv("PROMPT_GUARD_ENDPOINT"); endpoint != "" {
-		mlTimeout := time.Duration(envOrDefaultInt("PROMPT_GUARD_TIMEOUT_MS", 100)) * time.Millisecond
-		mlDet, err := detectors.NewMLPromptInjectionDetector(endpoint, mlTimeout, logger)
+		mlDet, err := detectors.NewMLPromptInjectionDetector(endpoint, logger)
 		if err != nil {
-			logger.Warn("failed to connect ml prompt injection detector, skipping",
+			logger.Error("failed to create ml prompt injection detector, skipping",
 				zap.String("endpoint", endpoint),
 				zap.Error(err),
 			)
@@ -67,7 +66,6 @@ func main() {
 			dets = append(dets, mlDet)
 			logger.Info("ml prompt injection detector enabled",
 				zap.String("endpoint", endpoint),
-				zap.Duration("timeout", mlTimeout),
 			)
 		}
 	}

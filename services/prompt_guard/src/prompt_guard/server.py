@@ -14,7 +14,6 @@ from grpc_reflection.v1alpha import reflection
 
 from prompt_guard.config import Config
 from prompt_guard.gen.prompt_guard.v1 import prompt_guard_pb2, prompt_guard_pb2_grpc
-from prompt_guard.model import PromptGuardModel
 from prompt_guard.service import PromptGuardServicer
 
 logger = structlog.get_logger()
@@ -61,6 +60,8 @@ def serve() -> None:
     )
 
     # Load model (downloads from HuggingFace Hub on first run)
+    from prompt_guard.model import PromptGuardModel
+
     model = PromptGuardModel(cfg.model_name, cfg.device)
 
     # gRPC server
