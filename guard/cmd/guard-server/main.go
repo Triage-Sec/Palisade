@@ -68,7 +68,7 @@ func main() {
 		if err != nil {
 			logger.Fatal("failed to open postgres", zap.Error(err))
 		}
-		defer db.Close()
+		defer db.Close() //nolint:errcheck // best-effort cleanup at shutdown
 		db.SetMaxOpenConns(10)
 		db.SetMaxIdleConns(5)
 		db.SetConnMaxLifetime(5 * time.Minute)
