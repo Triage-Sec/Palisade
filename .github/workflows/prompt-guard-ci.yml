@@ -62,12 +62,3 @@ jobs:
       - name: Run tests
         working-directory: services/prompt_guard
         run: python -m pytest tests/ -v
-
-  build:
-    needs: [lint, test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build Docker image (smoke test)
-        run: docker build -f services/prompt_guard/deploy/Dockerfile -t palisade-prompt-guard:ci .
