@@ -1,8 +1,10 @@
 import * as cdk from "aws-cdk-lib";
+import * as autoscaling from "aws-cdk-lib/aws-autoscaling";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
 
@@ -62,9 +64,38 @@ export class PromptGuardStack extends cdk.Stack {
     // Fargate does not support GPU instances. We need a T4 GPU for
     // fast ML inference (<15ms per classification).
     //
-    // Uses cluster.addCapacity() with min=max=1 for a single instance.
+    // WHY Launch Template (not cluster.addCapacity):
+    // AWS deprecated Launch Configurations. We use an explicit
+    // LaunchTemplate + AutoScalingGroup + AsgCapacityProvider.
     // ---------------------------------------------------------------
-    const capacity = cluster.addCapacity("GpuCapacity", {
+
+    // IAM role for the EC2 instance — must include ECS container agent permissions.
+    const instanceRole = new iam.Role(this, "InstanceRole", {
+      assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          "service-role/AmazonEC2ContainerServiceforEC2Role"
+        ),
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          "AmazonSSMManagedInstanceCore"
+        ),
+      ],
+    });
+
+    // Security group for the GPU instance.
+    const gpuSg = new ec2.SecurityGroup(this, "GpuSg", {
+      vpc,
+      description: "Allow gRPC traffic to prompt guard GPU instance",
+      allowAllOutbound: true,
+    });
+    gpuSg.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(50052),
+      "gRPC internal"
+    );
+
+    // Launch Template with GPU AMI — replaces deprecated Launch Configuration.
+    const launchTemplate = new ec2.LaunchTemplate(this, "GpuLaunchTemplate", {
       instanceType: ec2.InstanceType.of(
         ec2.InstanceClass.G4DN,
         ec2.InstanceSize.XLARGE
@@ -72,12 +103,33 @@ export class PromptGuardStack extends cdk.Stack {
       machineImage: ecs.EcsOptimizedImage.amazonLinux2(
         ecs.AmiHardwareType.GPU
       ),
+      role: instanceRole,
+      securityGroup: gpuSg,
+      associatePublicIpAddress: true,
+      userData: ec2.UserData.forLinux(),
+    });
+
+    // Add ECS cluster membership to user data.
+    launchTemplate.userData!.addCommands(
+      `echo ECS_CLUSTER=${cluster.clusterName} >> /etc/ecs/ecs.config`
+    );
+
+    // AutoScalingGroup with min=max=1 for a single GPU instance.
+    const asg = new autoscaling.AutoScalingGroup(this, "GpuAsg", {
+      vpc,
+      launchTemplate,
       minCapacity: 1,
       maxCapacity: 1,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-      associatePublicIpAddress: true,
     });
-    capacity.connections.allowFromAnyIpv4(ec2.Port.tcp(50052), "gRPC internal");
+
+    // Register ASG as a capacity provider for the ECS cluster.
+    const capacityProvider = new ecs.AsgCapacityProvider(
+      this,
+      "GpuCapacityProvider",
+      { autoScalingGroup: asg }
+    );
+    cluster.addAsgCapacityProvider(capacityProvider);
 
     // ---------------------------------------------------------------
     // EC2 Task Definition — 4 vCPU / 14 GB + 1 GPU.
@@ -118,6 +170,12 @@ export class PromptGuardStack extends cdk.Stack {
       serviceName: `palisade-prompt-guard-${envName}`,
       taskDefinition: taskDef,
       desiredCount: 1,
+      capacityProviderStrategies: [
+        {
+          capacityProvider: capacityProvider.capacityProviderName,
+          weight: 1,
+        },
+      ],
       circuitBreaker: { enable: true, rollback: true },
       minHealthyPercent: 0,
       maxHealthyPercent: 100,
