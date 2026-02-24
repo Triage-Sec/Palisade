@@ -60,7 +60,7 @@ export class GuardStack extends cdk.Stack {
 
     // ---------------------------------------------------------------
     // Task Definition — Fargate task with the guard container.
-    // 0.5 vCPU / 1 GB is plenty for Phase 1 regex-only detectors.
+    // 0.5 vCPU / 1 GB is plenty for regex detectors.
     // ---------------------------------------------------------------
     const taskDef = new ecs.FargateTaskDefinition(this, "TaskDef", {
       cpu: 512, // 0.5 vCPU
@@ -70,6 +70,7 @@ export class GuardStack extends cdk.Stack {
     // DSNs are passed via env var at deploy time.
     // In production, move these to AWS Secrets Manager for better security.
     const clickhouseDsn = process.env.CLICKHOUSE_DSN || "";
+    const promptGuardEndpoint = process.env.PROMPT_GUARD_ENDPOINT || "";
 
     taskDef.addContainer("guard", {
       image: ecs.ContainerImage.fromEcrRepository(repo, imageTag),
@@ -90,6 +91,7 @@ export class GuardStack extends cdk.Stack {
         GUARD_BLOCK_THRESHOLD: "0.8",
         GUARD_FLAG_THRESHOLD: "0.0",
         CLICKHOUSE_DSN: clickhouseDsn,
+        PROMPT_GUARD_ENDPOINT: promptGuardEndpoint,
       },
     });
 

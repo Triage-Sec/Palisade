@@ -17,7 +17,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-1
       CLICKHOUSE_DSN: ${{ secrets.CLICKHOUSE_DSN }}
-
+      PROMPT_GUARD_ENDPOINT: ${{ secrets.PROMPT_GUARD_ENDPOINT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
           VERSION="${TAG#guard-dev@}"
           pnpm install
           VERSION="$VERSION" npx cdk bootstrap aws://${{ env.AWS_ACCOUNT_ID }}/us-west-1
-          VERSION="$VERSION" CLICKHOUSE_DSN="${{ env.CLICKHOUSE_DSN }}" VPC_ID="${{ env.VPC_ID }}" \
+          VERSION="$VERSION" CLICKHOUSE_DSN="${{ env.CLICKHOUSE_DSN }}" PROMPT_GUARD_ENDPOINT="${{ env.PROMPT_GUARD_ENDPOINT }}" VPC_ID="${{ env.VPC_ID }}" \
             npx cdk deploy palisade-guard-dev \
             --require-approval never \
             --progress events
@@ -62,8 +62,8 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-1
       CLICKHOUSE_DSN: ${{ secrets.CLICKHOUSE_DSN }}
-
       VPC_ID: ${{ secrets.VPC_ID }}
+      PROMPT_GUARD_ENDPOINT: ${{ secrets.PROMPT_GUARD_ENDPOINT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,7 +93,7 @@ jobs:
           VERSION="${TAG#guard-prod@}"
           pnpm install
           VERSION="$VERSION" npx cdk bootstrap aws://${{ env.AWS_ACCOUNT_ID }}/us-west-1
-          VERSION="$VERSION" CLICKHOUSE_DSN="${{ env.CLICKHOUSE_DSN }}" VPC_ID="${{ env.VPC_ID }}" \
+          VERSION="$VERSION" CLICKHOUSE_DSN="${{ env.CLICKHOUSE_DSN }}" PROMPT_GUARD_ENDPOINT="${{ env.PROMPT_GUARD_ENDPOINT }}" VPC_ID="${{ env.VPC_ID }}" \
             npx cdk deploy palisade-guard-prod \
             --require-approval never \
             --progress events
