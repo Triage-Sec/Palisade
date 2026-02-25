@@ -17,6 +17,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-1
       CLICKHOUSE_DSN: ${{ secrets.CLICKHOUSE_DSN }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,6 +71,7 @@ jobs:
       AWS_DEFAULT_REGION: us-west-1
       CLICKHOUSE_DSN: ${{ secrets.CLICKHOUSE_DSN }}
       VPC_ID: ${{ secrets.VPC_ID }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
