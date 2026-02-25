@@ -30,14 +30,19 @@ export class GuardStack extends cdk.Stack {
     const vpc = ec2.Vpc.fromLookup(this, "Vpc", { vpcId });
 
     // ---------------------------------------------------------------
-    // ECR Repository — look up the existing repo.
-    // The repo is created by scripts/create_docker.sh on first push.
-    // CDK references it rather than creating it, avoiding conflicts.
+    // ECR Repositories — look up existing repos.
+    // Created by scripts/create_docker.sh on first push.
     // ---------------------------------------------------------------
     const repo = ecr.Repository.fromRepositoryName(
       this,
       "Repo",
       "palisade-guard"
+    );
+
+    const sidecarRepo = ecr.Repository.fromRepositoryName(
+      this,
+      "SidecarRepo",
+      "palisade-prompt-guard-sidecar"
     );
 
     // ---------------------------------------------------------------
@@ -59,21 +64,20 @@ export class GuardStack extends cdk.Stack {
     });
 
     // ---------------------------------------------------------------
-    // Task Definition — Fargate task with the guard container.
-    // 0.5 vCPU / 1 GB is plenty for regex detectors.
+    // Task Definition — Fargate task with guard + ML sidecar.
+    // 1 vCPU / 2 GB to accommodate the ONNX model (~500MB).
     // ---------------------------------------------------------------
     const taskDef = new ecs.FargateTaskDefinition(this, "TaskDef", {
-      cpu: 512, // 0.5 vCPU
-      memoryLimitMiB: 1024, // 1 GB
+      cpu: 1024, // 1 vCPU
+      memoryLimitMiB: 2048, // 2 GB
     });
 
-    // DSNs are passed via env var at deploy time.
-    // In production, move these to AWS Secrets Manager for better security.
     const clickhouseDsn = process.env.CLICKHOUSE_DSN || "";
-    const promptGuardEndpoint = process.env.PROMPT_GUARD_ENDPOINT || "";
 
+    // Guard container — the main gRPC server
     taskDef.addContainer("guard", {
       image: ecs.ContainerImage.fromEcrRepository(repo, imageTag),
+      essential: true,
       portMappings: [
         {
           containerPort: 50051,
@@ -91,7 +95,29 @@ export class GuardStack extends cdk.Stack {
         GUARD_BLOCK_THRESHOLD: "0.8",
         GUARD_FLAG_THRESHOLD: "0.0",
         CLICKHOUSE_DSN: clickhouseDsn,
-        PROMPT_GUARD_ENDPOINT: promptGuardEndpoint,
+        PROMPT_GUARD_ENDPOINT: "localhost:50052",
+      },
+    });
+
+    // Prompt Guard sidecar — ONNX model for ML classification
+    taskDef.addContainer("prompt-guard", {
+      image: ecs.ContainerImage.fromEcrRepository(sidecarRepo, imageTag),
+      essential: true,
+      portMappings: [
+        {
+          containerPort: 50052,
+          protocol: ecs.Protocol.TCP,
+        },
+      ],
+      logging: ecs.LogDrivers.awsLogs({
+        logGroup,
+        streamPrefix: "prompt-guard",
+      }),
+      environment: {
+        PROMPT_GUARD_PORT: "50052",
+        PROMPT_GUARD_RUNTIME: "onnx",
+        PROMPT_GUARD_ONNX_MODEL_PATH: "/app/model",
+        PROMPT_GUARD_LOG_LEVEL: envName === "prod" ? "info" : "debug",
       },
     });
 
