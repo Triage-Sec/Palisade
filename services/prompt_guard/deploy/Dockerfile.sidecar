@@ -9,6 +9,11 @@ RUN pip install --no-cache-dir torch transformers onnx
 # Copy export script
 COPY services/prompt_guard/scripts/export_onnx.py ./
 
+# HF_TOKEN is required to download the gated model during export.
+# This ARG is scoped to the exporter stage and is NOT present in the final image.
+ARG HF_TOKEN
+ENV HF_TOKEN=${HF_TOKEN}
+
 # Export model to /export/model/
 RUN python export_onnx.py /export/model
 

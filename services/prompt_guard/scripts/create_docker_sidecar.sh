@@ -3,6 +3,12 @@
 #
 # Usage:
 #   ./services/prompt_guard/scripts/create_docker_sidecar.sh <VERSION>
+#
+# Requires:
+#   - AWS CLI configured (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION)
+#   - Docker running
+#   - AWS_ACCOUNT_ID set (or auto-detected via STS)
+#   - HF_TOKEN set (HuggingFace token for gated model download during ONNX export stage)
 
 set -euo pipefail
 
@@ -26,8 +32,11 @@ aws ecr get-login-password --region "${AWS_REGION}" | \
   docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
 # Build from repo root.
+# HF_TOKEN is used to download the gated model during the export stage.
+# It is scoped to the exporter stage and is NOT baked into the final image.
 docker build \
   -f services/prompt_guard/deploy/Dockerfile.sidecar \
+  --build-arg HF_TOKEN="${HF_TOKEN:?HF_TOKEN is required}" \
   -t "${ECR_REGISTRY}/${ECR_REPO}:${VERSION}" \
   -t "${ECR_REGISTRY}/${ECR_REPO}:latest" \
   .
