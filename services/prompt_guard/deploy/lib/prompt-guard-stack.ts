@@ -107,11 +107,24 @@ export class PromptGuardStack extends cdk.Stack {
       securityGroup: gpuSg,
       associatePublicIpAddress: true,
       userData: ec2.UserData.forLinux(),
+      blockDevices: [
+        {
+          deviceName: "/dev/xvda",
+          volume: ec2.BlockDeviceVolume.ebs(50, {
+            volumeType: ec2.EbsDeviceVolumeType.GP3,
+          }),
+        },
+      ],
     });
 
-    // Add ECS cluster membership to user data.
+    // Add ECS cluster membership + image cleanup to user data.
     launchTemplate.userData!.addCommands(
-      `echo ECS_CLUSTER=${cluster.clusterName} >> /etc/ecs/ecs.config`
+      `cat >> /etc/ecs/ecs.config <<EOF`,
+      `ECS_CLUSTER=${cluster.clusterName}`,
+      `ECS_IMAGE_CLEANUP_INTERVAL=10m`,
+      `ECS_IMAGE_MINIMUM_CLEANUP_AGE=30m`,
+      `ECS_NUM_IMAGES_DELETE_PER_CYCLE=5`,
+      `EOF`
     );
 
     // AutoScalingGroup with min=max=1 for a single GPU instance.
