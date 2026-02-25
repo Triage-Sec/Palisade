@@ -38,7 +38,8 @@ class ONNXPromptGuardModel:
             sess_options=opts,
             providers=providers,
         )
-        self._device = "cuda-onnx" if "CUDAExecutionProvider" in self._session.get_providers() else "cpu-onnx"
+        active = self._session.get_providers()
+        self._device = "cuda-onnx" if "CUDAExecutionProvider" in active else "cpu-onnx"
 
         # Load tokenizer from local files (baked into image)
         self._tokenizer = Tokenizer.from_file(f"{model_path}/tokenizer.json")
