@@ -3,8 +3,8 @@ FROM python:3.11-slim AS exporter
 
 WORKDIR /export
 
-# Install PyTorch + transformers for export only
-RUN pip install --no-cache-dir torch transformers onnx
+# Install optimum + transformers for ONNX export (no manual torch.onnx.export)
+RUN pip install --no-cache-dir "optimum[onnxruntime]" transformers
 
 # Copy export script
 COPY services/prompt_guard/scripts/export_onnx.py ./
