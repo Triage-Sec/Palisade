@@ -43,9 +43,7 @@ func startMockServer(t *testing.T, srv *mockPromptGuardServer) string {
 	grpcServer := grpc.NewServer()
 	promptguardv1.RegisterPromptGuardServiceServer(grpcServer, srv)
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			// Server stopped — expected during cleanup
-		}
+		_ = grpcServer.Serve(lis) // error expected during cleanup
 	}()
 	t.Cleanup(func() { grpcServer.Stop() })
 	return lis.Addr().String()
@@ -59,7 +57,7 @@ func TestMLPromptInjectionDetector_Name(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMLPromptInjectionDetector: %v", err)
 	}
-	defer det.Close()
+	defer det.Close() //nolint:errcheck // test cleanup
 
 	if det.Name() != "ml_prompt_injection" {
 		t.Errorf("Name() = %q, want %q", det.Name(), "ml_prompt_injection")
@@ -74,7 +72,7 @@ func TestMLPromptInjectionDetector_Category(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMLPromptInjectionDetector: %v", err)
 	}
-	defer det.Close()
+	defer det.Close() //nolint:errcheck // test cleanup
 
 	if det.Category() != guardv1.ThreatCategory_THREAT_CATEGORY_PROMPT_INJECTION {
 		t.Errorf("Category() = %v, want PROMPT_INJECTION", det.Category())
@@ -98,7 +96,7 @@ func TestMLPromptInjectionDetector_SafeText(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMLPromptInjectionDetector: %v", err)
 	}
-	defer det.Close()
+	defer det.Close() //nolint:errcheck // test cleanup
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -133,7 +131,7 @@ func TestMLPromptInjectionDetector_InjectionDetected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMLPromptInjectionDetector: %v", err)
 	}
-	defer det.Close()
+	defer det.Close() //nolint:errcheck // test cleanup
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -168,7 +166,7 @@ func TestMLPromptInjectionDetector_JailbreakDetected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMLPromptInjectionDetector: %v", err)
 	}
-	defer det.Close()
+	defer det.Close() //nolint:errcheck // test cleanup
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -195,7 +193,7 @@ func TestMLPromptInjectionDetector_GRPCError_Fallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMLPromptInjectionDetector: %v", err)
 	}
-	defer det.Close()
+	defer det.Close() //nolint:errcheck // test cleanup
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -234,7 +232,7 @@ func TestMLPromptInjectionDetector_ContextDeadline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMLPromptInjectionDetector: %v", err)
 	}
-	defer det.Close()
+	defer det.Close() //nolint:errcheck // test cleanup
 
 	// 50ms deadline — much shorter than the 2s mock delay
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -282,7 +280,7 @@ func TestMLPromptInjectionDetector_Details(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMLPromptInjectionDetector: %v", err)
 	}
-	defer det.Close()
+	defer det.Close() //nolint:errcheck // test cleanup
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
