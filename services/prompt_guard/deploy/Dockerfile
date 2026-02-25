@@ -45,8 +45,22 @@ RUN python -m grpc_tools.protoc \
     sed -i 's/from prompt_guard\.v1 import/from prompt_guard.gen.prompt_guard.v1 import/' \
     src/prompt_guard/gen/prompt_guard/v1/prompt_guard_pb2_grpc.py
 
-# === Stage 3: Runtime (slim, ONNX Runtime GPU — no PyTorch) ===
-FROM python:3.11-slim
+# === Stage 3: Runtime (NVIDIA CUDA + ONNX Runtime GPU — no PyTorch) ===
+# Must use NVIDIA base image so onnxruntime-gpu can find CUDA/cuDNN libraries.
+# python:3.11-slim lacks these, causing silent fallback to CPUExecutionProvider.
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu22.04
+
+# Install Python 3.11 from deadsnakes PPA
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && apt-get install -y --no-install-recommends \
+        python3.11 python3.11-venv python3.11-dev && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    apt-get purge -y software-properties-common && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN useradd -r -d /app promptguard
 
@@ -61,6 +75,10 @@ COPY --from=builder /build/src/ ./src/
 
 # Copy ONNX model from exporter
 COPY --from=exporter /export/model/ ./model/
+
+# NVIDIA container runtime exposes GPUs via these env vars
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
