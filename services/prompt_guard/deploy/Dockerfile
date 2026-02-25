@@ -20,10 +20,11 @@ WORKDIR /build
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install runtime dependencies — onnxruntime-gpu for CUDA acceleration.
-# PyTorch is NOT needed at runtime; ONNX Runtime handles GPU inference directly.
+# Install runtime dependencies — onnxruntime-gpu with CUDA/cuDNN pip packages.
+# The [cuda,cudnn] extras pull NVIDIA libraries as pip wheels (~2GB) so we
+# don't need the nvidia/cuda base image. PyTorch is NOT needed at runtime.
 RUN pip install --no-cache-dir \
-    onnxruntime-gpu \
+    "onnxruntime-gpu[cuda,cudnn]" \
     tokenizers \
     numpy \
     grpcio \
@@ -45,30 +46,25 @@ RUN python -m grpc_tools.protoc \
     sed -i 's/from prompt_guard\.v1 import/from prompt_guard.gen.prompt_guard.v1 import/' \
     src/prompt_guard/gen/prompt_guard/v1/prompt_guard_pb2_grpc.py
 
-# === Stage 3: Runtime (NVIDIA CUDA + ONNX Runtime GPU — no PyTorch) ===
-# Must use NVIDIA base image so onnxruntime-gpu can find CUDA/cuDNN libraries.
-# python:3.11-slim lacks these, causing silent fallback to CPUExecutionProvider.
-FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu22.04
-
-# Install Python 3.11 from deadsnakes PPA
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        software-properties-common && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && apt-get install -y --no-install-recommends \
-        python3.11 python3.11-venv python3.11-dev && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python && \
-    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-    apt-get purge -y software-properties-common && \
-    apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/*
+# === Stage 3: Runtime (python:3.11-slim + CUDA from pip — no PyTorch) ===
+FROM python:3.11-slim
 
 RUN useradd -r -d /app promptguard
 
 WORKDIR /app
 
-# Copy venv from builder
+# Copy venv from builder (includes onnxruntime-gpu + NVIDIA CUDA/cuDNN pip packages)
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+
+# NVIDIA CUDA pip packages install into site-packages/nvidia/*/lib/ which is
+# not on the default library search path. onnxruntime-gpu needs these at runtime.
+ENV LD_LIBRARY_PATH="/opt/venv/lib/python3.11/site-packages/nvidia/cuda_runtime/lib:\
+/opt/venv/lib/python3.11/site-packages/nvidia/cublas/lib:\
+/opt/venv/lib/python3.11/site-packages/nvidia/cudnn/lib:\
+/opt/venv/lib/python3.11/site-packages/nvidia/cufft/lib:\
+/opt/venv/lib/python3.11/site-packages/nvidia/curand/lib:\
+/opt/venv/lib/python3.11/site-packages/nvidia/cuda_nvrtc/lib"
 
 # Copy application code (with generated proto stubs)
 COPY --from=builder /build/src/ ./src/
