@@ -3,8 +3,10 @@ FROM python:3.11-slim AS exporter
 
 WORKDIR /export
 
-# Install optimum + transformers for export (no PyTorch needed at runtime)
-RUN pip install --no-cache-dir "optimum[onnxruntime]" transformers
+# Install CPU-only PyTorch first (~200MB vs ~5GB for GPU torch), then optimum.
+# Export runs on CPU — no CUDA needed in this stage.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir "optimum[onnxruntime]" transformers
 
 # Copy export script
 COPY services/prompt_guard/scripts/export_onnx.py ./
