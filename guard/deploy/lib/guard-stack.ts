@@ -39,12 +39,6 @@ export class GuardStack extends cdk.Stack {
       "palisade-guard"
     );
 
-    const sidecarRepo = ecr.Repository.fromRepositoryName(
-      this,
-      "SidecarRepo",
-      "palisade-prompt-guard-sidecar"
-    );
-
     // ---------------------------------------------------------------
     // ECS Cluster — one cluster per environment for the guard service.
     // ---------------------------------------------------------------
@@ -64,15 +58,16 @@ export class GuardStack extends cdk.Stack {
     });
 
     // ---------------------------------------------------------------
-    // Task Definition — Fargate task with guard + ML sidecar.
-    // 1 vCPU / 2 GB to accommodate the ONNX model (~500MB).
+    // Task Definition — Fargate task with guard only.
+    // ML inference is handled by the dedicated GPU instance (prompt-guard NLB).
     // ---------------------------------------------------------------
     const taskDef = new ecs.FargateTaskDefinition(this, "TaskDef", {
-      cpu: 1024, // 1 vCPU
-      memoryLimitMiB: 2048, // 2 GB
+      cpu: 512, // 0.5 vCPU
+      memoryLimitMiB: 1024, // 1 GB
     });
 
     const clickhouseDsn = process.env.CLICKHOUSE_DSN || "";
+    const promptGuardEndpoint = process.env.PROMPT_GUARD_ENDPOINT || "";
 
     // Guard container — the main gRPC server
     taskDef.addContainer("guard", {
@@ -95,29 +90,7 @@ export class GuardStack extends cdk.Stack {
         GUARD_BLOCK_THRESHOLD: "0.8",
         GUARD_FLAG_THRESHOLD: "0.0",
         CLICKHOUSE_DSN: clickhouseDsn,
-        PROMPT_GUARD_ENDPOINT: "localhost:50052",
-      },
-    });
-
-    // Prompt Guard sidecar — ONNX model for ML classification
-    taskDef.addContainer("prompt-guard", {
-      image: ecs.ContainerImage.fromEcrRepository(sidecarRepo, imageTag),
-      essential: true,
-      portMappings: [
-        {
-          containerPort: 50052,
-          protocol: ecs.Protocol.TCP,
-        },
-      ],
-      logging: ecs.LogDrivers.awsLogs({
-        logGroup,
-        streamPrefix: "prompt-guard",
-      }),
-      environment: {
-        PROMPT_GUARD_PORT: "50052",
-        PROMPT_GUARD_RUNTIME: "onnx",
-        PROMPT_GUARD_ONNX_MODEL_PATH: "/app/model",
-        PROMPT_GUARD_LOG_LEVEL: envName === "prod" ? "info" : "debug",
+        PROMPT_GUARD_ENDPOINT: promptGuardEndpoint,
       },
     });
 
