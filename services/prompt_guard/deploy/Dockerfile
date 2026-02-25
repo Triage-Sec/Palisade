@@ -1,19 +1,40 @@
-# === Builder ===
+# === Stage 1: Export ONNX model ===
+FROM python:3.11-slim AS exporter
+
+WORKDIR /export
+
+# Install optimum + transformers for export (no PyTorch needed at runtime)
+RUN pip install --no-cache-dir "optimum[onnxruntime]" transformers
+
+# Copy export script
+COPY services/prompt_guard/scripts/export_onnx.py ./
+
+# HF_TOKEN is mounted as a secret so it never appears in any image layer.
+RUN --mount=type=secret,id=hf_token,env=HF_TOKEN python export_onnx.py /export/model
+
+# === Stage 2: Generate gRPC stubs ===
 FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
-# Create venv and install dependencies first (cached layer).
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY services/prompt_guard/pyproject.toml ./
-RUN pip install --no-cache-dir ".[dev]" && \
-    pip install --no-cache-dir grpcio-health-checking grpcio-reflection
+# Install runtime dependencies — onnxruntime-gpu for CUDA acceleration.
+# PyTorch is NOT needed at runtime; ONNX Runtime handles GPU inference directly.
+RUN pip install --no-cache-dir \
+    onnxruntime-gpu \
+    tokenizers \
+    numpy \
+    grpcio \
+    grpcio-tools \
+    grpcio-health-checking \
+    grpcio-reflection \
+    structlog
 
-# Copy proto and generate stubs.
+# Generate proto stubs
 COPY proto/ /proto/
-COPY services/prompt_guard/ ./
+COPY services/prompt_guard/src/ ./src/
 
 RUN python -m grpc_tools.protoc \
     -I /proto \
@@ -24,10 +45,7 @@ RUN python -m grpc_tools.protoc \
     sed -i 's/from prompt_guard\.v1 import/from prompt_guard.gen.prompt_guard.v1 import/' \
     src/prompt_guard/gen/prompt_guard/v1/prompt_guard_pb2_grpc.py
 
-# === Runtime ===
-# PyTorch ships its own CUDA libraries bundled in the wheel.
-# No need for the nvidia/cuda base image — python:3.11-slim is sufficient.
-# The g4dn instance provides the NVIDIA driver; PyTorch handles the rest.
+# === Stage 3: Runtime (slim, ONNX Runtime GPU — no PyTorch) ===
 FROM python:3.11-slim
 
 RUN useradd -r -d /app promptguard
@@ -41,19 +59,13 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy application code (with generated proto stubs)
 COPY --from=builder /build/src/ ./src/
 
-# Pre-download model during build for fast cold starts.
-# If HF_TOKEN is not set, model download is skipped (container will download on first start).
-ARG HF_TOKEN=""
-ENV HF_HOME=/app/.cache/huggingface
-RUN if [ -n "$HF_TOKEN" ]; then \
-    HF_TOKEN="$HF_TOKEN" python -c "\
-from transformers import AutoModelForSequenceClassification, AutoTokenizer; \
-AutoTokenizer.from_pretrained('qualifire/prompt-injection-jailbreak-sentinel-v2'); \
-AutoModelForSequenceClassification.from_pretrained('qualifire/prompt-injection-jailbreak-sentinel-v2')"; \
-    else echo "HF_TOKEN not set, skipping model pre-download"; fi
+# Copy ONNX model from exporter
+COPY --from=exporter /export/model/ ./model/
 
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
+ENV PROMPT_GUARD_RUNTIME=onnx
+ENV PROMPT_GUARD_ONNX_MODEL_PATH=/app/model
 
 USER promptguard
 

@@ -1,4 +1,4 @@
-"""ONNX Runtime model for prompt injection detection (CPU-optimized)."""
+"""ONNX Runtime model for prompt injection detection (GPU-accelerated with CPU fallback)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ logger = structlog.get_logger()
 
 
 class ONNXPromptGuardModel:
-    """ONNX Runtime inference — no PyTorch dependency, CPU-only."""
+    """ONNX Runtime inference — no PyTorch dependency, GPU-accelerated with CPU fallback."""
 
     def __init__(self, model_path: str) -> None:
         import onnxruntime as ort
@@ -22,17 +22,23 @@ class ONNXPromptGuardModel:
         logger.info("loading_onnx_model", path=model_path)
         start = time.monotonic()
 
-        # ONNX Runtime session with CPU optimizations
+        # ONNX Runtime session — prefer CUDA if available, fall back to CPU.
         opts = ort.SessionOptions()
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         opts.intra_op_num_threads = 4
         opts.inter_op_num_threads = 1
 
+        providers = []
+        if "CUDAExecutionProvider" in ort.get_available_providers():
+            providers.append("CUDAExecutionProvider")
+        providers.append("CPUExecutionProvider")
+
         self._session = ort.InferenceSession(
             f"{model_path}/model.onnx",
             sess_options=opts,
-            providers=["CPUExecutionProvider"],
+            providers=providers,
         )
+        self._device = "cuda-onnx" if "CUDAExecutionProvider" in self._session.get_providers() else "cpu-onnx"
 
         # Load tokenizer from local files (baked into image)
         self._tokenizer = Tokenizer.from_file(f"{model_path}/tokenizer.json")
@@ -56,7 +62,7 @@ class ONNXPromptGuardModel:
 
     @property
     def device(self) -> str:
-        return "cpu-onnx"
+        return self._device
 
     @property
     def ready(self) -> bool:

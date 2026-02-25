@@ -157,8 +157,8 @@ export class PromptGuardStack extends cdk.Stack {
         PROMPT_GUARD_PORT: "50052",
         PROMPT_GUARD_LOG_LEVEL: envName === "prod" ? "info" : "debug",
         PROMPT_GUARD_MAX_WORKERS: "4",
-        PROMPT_GUARD_MODEL_NAME:
-          "qualifire/prompt-injection-jailbreak-sentinel-v2",
+        PROMPT_GUARD_RUNTIME: "onnx",
+        PROMPT_GUARD_ONNX_MODEL_PATH: "/app/model",
       },
     });
 
