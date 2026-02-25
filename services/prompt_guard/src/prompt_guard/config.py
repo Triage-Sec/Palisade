@@ -15,6 +15,8 @@ class Config:
     max_workers: int = 4
     log_level: str = "info"
     device: str = ""  # empty = auto-detect (cuda if available, else cpu)
+    runtime: str = "torch"  # "torch" or "onnx"
+    onnx_model_path: str = "/app/model"  # directory with model.onnx + tokenizer files
 
     @classmethod
     def from_env(cls) -> Config:
@@ -27,4 +29,6 @@ class Config:
             max_workers=int(os.getenv("PROMPT_GUARD_MAX_WORKERS", "4")),
             log_level=os.getenv("PROMPT_GUARD_LOG_LEVEL", "info"),
             device=os.getenv("PROMPT_GUARD_DEVICE", ""),
+            runtime=os.getenv("PROMPT_GUARD_RUNTIME", "torch"),
+            onnx_model_path=os.getenv("PROMPT_GUARD_ONNX_MODEL_PATH", "/app/model"),
         )

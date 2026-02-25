@@ -59,10 +59,15 @@ def serve() -> None:
         device=cfg.device or "auto",
     )
 
-    # Load model (downloads from HuggingFace Hub on first run)
-    from prompt_guard.model import PromptGuardModel
+    # Load model
+    if cfg.runtime == "onnx":
+        from prompt_guard.onnx_model import ONNXPromptGuardModel
 
-    model = PromptGuardModel(cfg.model_name, cfg.device)
+        model = ONNXPromptGuardModel(cfg.onnx_model_path)
+    else:
+        from prompt_guard.model import PromptGuardModel
+
+        model = PromptGuardModel(cfg.model_name, cfg.device)
 
     # gRPC server
     server = grpc.server(
