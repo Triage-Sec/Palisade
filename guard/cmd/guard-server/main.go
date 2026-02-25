@@ -44,17 +44,15 @@ func main() {
 		zap.Float32("flag_threshold", flagThreshold),
 	)
 
-	// Engine — all Phase 1 detectors wired up here to avoid import cycle
+	// Engine — detectors wired up here to avoid import cycle
 	dets := []engine.Detector{
-		detectors.NewPromptInjectionDetector(),
-		detectors.NewJailbreakDetector(),
 		detectors.NewPIIDetector(),
 		detectors.NewContentModDetector(),
 		detectors.NewToolAbuseDetector(),
 	}
 
-	// ML detector — conditional on PROMPT_GUARD_ENDPOINT being set.
-	// Connects to the prompt_guard gRPC service (e.g. "18.144.167.163:50052").
+	// ML detector — prompt injection + jailbreak classification via prompt_guard gRPC service.
+	// Replaces the old regex-based prompt_injection and jailbreak detectors.
 	if endpoint := os.Getenv("PROMPT_GUARD_ENDPOINT"); endpoint != "" {
 		mlDet, err := detectors.NewMLPromptInjectionDetector(endpoint, logger)
 		if err != nil {
