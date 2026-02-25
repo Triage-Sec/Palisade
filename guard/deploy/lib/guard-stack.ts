@@ -87,7 +87,7 @@ export class GuardStack extends cdk.Stack {
       environment: {
         GUARD_PORT: "50051",
         GUARD_LOG_LEVEL: envName === "prod" ? "info" : "debug",
-        GUARD_DETECTOR_TIMEOUT_MS: "25",
+        GUARD_DETECTOR_TIMEOUT_MS: "100",
         GUARD_BLOCK_THRESHOLD: "0.8",
         GUARD_FLAG_THRESHOLD: "0.0",
         CLICKHOUSE_DSN: clickhouseDsn,
