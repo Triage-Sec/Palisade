@@ -34,11 +34,14 @@ aws ecr describe-repositories --repository-names "${ECR_REPO}" --region "${AWS_R
 aws ecr get-login-password --region "${AWS_REGION}" | \
   docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
+# Validate HF_TOKEN is set (required for gated model download).
+: "${HF_TOKEN:?HF_TOKEN is required}"
+
 # Build from repo root (Dockerfile needs services/prompt_guard/ and proto/ directories).
-# HF_TOKEN is used to download the model during build (baked into the image).
+# HF_TOKEN is mounted as a secret so it never appears in any image layer.
 docker build \
   -f services/prompt_guard/deploy/Dockerfile \
-  --build-arg HF_TOKEN="${HF_TOKEN:?HF_TOKEN is required}" \
+  --secret id=hf_token,env=HF_TOKEN \
   -t "${ECR_REGISTRY}/${ECR_REPO}:${VERSION}" \
   -t "${ECR_REGISTRY}/${ECR_REPO}:latest" \
   .
