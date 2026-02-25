@@ -1,7 +1,9 @@
 """Tests for ONNX inference accuracy and latency.
 
-Run with:
-    pip install onnxruntime tokenizers numpy torch transformers optimum pytest
+These tests require extra deps and a model download (~350MB). They are
+skipped automatically in CI when optimum is not installed. Run manually with:
+
+    pip install onnxruntime tokenizers numpy torch transformers "optimum[onnxruntime]" pytest
     PYTHONPATH=services/prompt_guard/src pytest services/prompt_guard/tests/test_onnx_inference.py -v
 """
 
@@ -12,6 +14,9 @@ import time
 
 import numpy as np
 import pytest
+
+# Skip entire module if optimum is not installed (CI doesn't have it)
+pytest.importorskip("optimum", reason="optimum not installed — skip ONNX inference tests")
 
 MODEL_NAME = "qualifire/prompt-injection-jailbreak-sentinel-v2"
 
