@@ -8,6 +8,7 @@ IMPLEMENTATION.md
 
 # Go
 guard/bin/
+services/tool_guard/bin/
 
 # CDK
 guard/deploy/node_modules/
@@ -35,6 +36,16 @@ services/prompt_guard/deploy/lib/*.js
 services/prompt_guard/deploy/lib/*.d.ts
 services/prompt_guard/deploy/bin/*.js
 services/prompt_guard/deploy/bin/*.d.ts
+
+# Tool Guard CDK
+services/tool_guard/deploy/node_modules/
+services/tool_guard/deploy/cdk.out/
+services/tool_guard/deploy/*.js
+services/tool_guard/deploy/*.d.ts
+services/tool_guard/deploy/lib/*.js
+services/tool_guard/deploy/lib/*.d.ts
+services/tool_guard/deploy/bin/*.js
+services/tool_guard/deploy/bin/*.d.ts
 
 # pnpm
 .pnpm-store/

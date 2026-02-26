@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package triage.tool_guard.v1;
+
+option go_package = "github.com/triage-ai/palisade/services/tool_guard/gen/tool_guard/v1;toolguardv1";
+
+// ==========================================================================
+// ToolGuardService — evaluates whether AI agent tool invocations are safe.
+// ==========================================================================
+
+service ToolGuardService {
+    // Unary RPC: evaluate a single tool call for safety.
+    // Latency target: <40ms p99.
+    rpc Check(ToolCheckRequest) returns (ToolCheckResponse);
+}
+
+// ==========================================================================
+// Enums
+// ==========================================================================
+
+// The safety verdict for a tool invocation.
+enum SafetyVerdict {
+    SAFETY_VERDICT_UNSPECIFIED = 0;
+    SAFETY_VERDICT_SAFE = 1;
+    SAFETY_VERDICT_UNSAFE = 2;
+    SAFETY_VERDICT_NEEDS_CONFIRMATION = 3;
+}
+
+// Risk tier of a tool definition.
+enum RiskTier {
+    RISK_TIER_UNSPECIFIED = 0;
+    RISK_TIER_READ = 1;
+    RISK_TIER_WRITE = 2;
+    RISK_TIER_DESTRUCTIVE = 3;
+}
+
+// Category of safety evaluation.
+enum EvalCategory {
+    EVAL_CATEGORY_UNSPECIFIED = 0;
+    EVAL_CATEGORY_RISK_TIER = 1;
+    EVAL_CATEGORY_PRECONDITION = 2;
+    EVAL_CATEGORY_ARGUMENT_VALIDATION = 3;
+    EVAL_CATEGORY_CONTEXTUAL_RULES = 4;
+    EVAL_CATEGORY_INFORMATION_FLOW = 5;
+}
+
+// ==========================================================================
+// Request / Response Messages
+// ==========================================================================
+
+message ToolCheckRequest {
+    // The name of the tool being invoked.
+    string tool_name = 1;
+
+    // JSON-serialized arguments to the tool call.
+    string arguments_json = 2;
+
+    // Prior tool calls in the session (caller sends inline for stateless eval).
+    repeated TraceEntry trace = 3;
+
+    // Identity context (who is making this tool call).
+    Identity identity = 4;
+
+    // Client's own trace/span ID for correlation.
+    string client_trace_id = 5;
+
+    // Whether the user has explicitly confirmed this tool call (for destructive tools).
+    bool user_confirmed = 6;
+
+    // Workflow type hint (e.g. "customer_support", "code_review").
+    string workflow_type = 7;
+
+    // Arbitrary key-value metadata.
+    map<string, string> metadata = 8;
+}
+
+message ToolCheckResponse {
+    // The safety verdict.
+    SafetyVerdict verdict = 1;
+
+    // Individual evaluator results.
+    repeated EvalResult evaluations = 2;
+
+    // Server-side processing latency in milliseconds.
+    float latency_ms = 3;
+
+    // Unique ID for this check event.
+    string request_id = 4;
+
+    // Human-readable explanation of the verdict.
+    string reason = 5;
+
+    // Restrictions the SDK should enforce on the tool's output.
+    repeated string output_restrictions = 6;
+}
+
+message EvalResult {
+    // Which evaluator produced this result.
+    EvalCategory category = 1;
+
+    // Whether this evaluator flagged the tool call.
+    bool triggered = 2;
+
+    // Confidence score (0.0 to 1.0).
+    float confidence = 3;
+
+    // Human-readable detail.
+    string details = 4;
+}
+
+message TraceEntry {
+    // Name of the tool that was called.
+    string tool_name = 1;
+
+    // JSON-serialized arguments.
+    string arguments_json = 2;
+
+    // JSON-serialized result.
+    string result_json = 3;
+
+    // Labels on the output (e.g. "pii", "financial", "internal").
+    repeated string output_labels = 4;
+
+    // When the tool call occurred (Unix milliseconds).
+    int64 timestamp_ms = 5;
+}
+
+message Identity {
+    string user_id = 1;
+    string session_id = 2;
+    string tenant_id = 3;
+}
