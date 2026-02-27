@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from transformers import AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from train_classifier import ToolSafetyClassifier, TSGUARD_PROMPT_TEMPLATE
 
@@ -230,6 +230,18 @@ def main():
     )
     model.load_state_dict(checkpoint["model_state_dict"])
     print(f"Loaded checkpoint from epoch {checkpoint['epoch']}")
+
+    # Swap backbone to eager attention for ONNX tracing compatibility
+    # (Qwen3's default SDPA attention uses vmap which is untraceable)
+    backbone_state = model.backbone.state_dict()
+    model.backbone = AutoModelForCausalLM.from_pretrained(
+        base_model_name,
+        trust_remote_code=True,
+        attn_implementation="eager",
+        torch_dtype=torch.float32,
+    )
+    model.backbone.load_state_dict(backbone_state)
+    print("Swapped backbone to eager attention for ONNX export")
 
     # Export
     onnx_path = export_to_onnx(model, tokenizer, args.output, max_length)
