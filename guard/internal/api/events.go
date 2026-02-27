@@ -223,7 +223,7 @@ func nilIfEmpty(s string) *string {
 }
 
 func queryInt(q interface{ Get(string) string }, key string, defaultVal int) int {
-	v := q.(interface{ Get(string) string }).Get(key)
+	v := q.Get(key)
 	if v == "" {
 		return defaultVal
 	}

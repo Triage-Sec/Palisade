@@ -103,7 +103,7 @@ func main() {
 		if err != nil {
 			logger.Fatal("failed to open postgres", zap.Error(err))
 		}
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 		db.SetMaxOpenConns(10)
 		db.SetMaxIdleConns(5)
 		db.SetConnMaxLifetime(5 * time.Minute)
@@ -124,7 +124,7 @@ func main() {
 		if err != nil {
 			logger.Warn("clickhouse reader connection failed", zap.Error(err))
 		} else {
-			defer chReader.Close()
+			defer func() { _ = chReader.Close() }()
 			logger.Info("clickhouse reader connected")
 		}
 	}

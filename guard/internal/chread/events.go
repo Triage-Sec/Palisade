@@ -155,7 +155,7 @@ func (r *Reader) ListEvents(ctx context.Context, params ListEventsParams) ([]Eve
 	if err != nil {
 		return nil, 0, fmt.Errorf("ListEvents query: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var events []EventRow
 	for rows.Next() {
@@ -304,7 +304,7 @@ func (r *Reader) GetAnalytics(ctx context.Context, projectID string, days int) (
 	if err != nil {
 		return nil, fmt.Errorf("GetAnalytics blocks_over_time: %w", err)
 	}
-	defer botRows.Close()
+	defer func() { _ = botRows.Close() }()
 	for botRows.Next() {
 		var hour time.Time
 		var count uint64
@@ -329,7 +329,7 @@ func (r *Reader) GetAnalytics(ctx context.Context, projectID string, days int) (
 	if err != nil {
 		return nil, fmt.Errorf("GetAnalytics top_categories: %w", err)
 	}
-	defer catRows.Close()
+	defer func() { _ = catRows.Close() }()
 	for catRows.Next() {
 		var cat string
 		var count uint64
@@ -389,7 +389,7 @@ func (r *Reader) GetAnalytics(ctx context.Context, projectID string, days int) (
 	if err != nil {
 		return nil, fmt.Errorf("GetAnalytics top_users: %w", err)
 	}
-	defer userRows.Close()
+	defer func() { _ = userRows.Close() }()
 	for userRows.Next() {
 		var uid string
 		var count uint64

@@ -196,7 +196,7 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 
 // readJSON decodes a JSON request body into the given pointer.
 func readJSON(r *http.Request, v interface{}) error {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
