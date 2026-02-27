@@ -2,8 +2,6 @@ package engine
 
 import (
 	"strings"
-
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 )
 
 // AggregatorConfig holds the thresholds for verdict determination.
@@ -22,13 +20,13 @@ func DefaultAggregatorConfig() AggregatorConfig {
 
 // AggregateResult holds the final verdict and reason after aggregation.
 type AggregateResult struct {
-	Verdict guardv1.Verdict
+	Verdict Verdict
 	Reason  string
 }
 
 // Aggregate takes detector results and applies global threshold rules to produce a verdict.
 // This is a convenience wrapper that calls AggregateWithPolicy with a nil policy.
-func Aggregate(results []*guardv1.DetectorResult, cfg AggregatorConfig) AggregateResult {
+func Aggregate(results []*DetectorResult, cfg AggregatorConfig) AggregateResult {
 	return AggregateWithPolicy(results, cfg, nil)
 }
 
@@ -40,8 +38,8 @@ func Aggregate(results []*guardv1.DetectorResult, cfg AggregatorConfig) Aggregat
 //  1. If ANY detector has Triggered=true AND Confidence >= its block_threshold → BLOCK
 //  2. If ANY detector has Triggered=true AND Confidence >= its flag_threshold  → FLAG
 //  3. Otherwise → ALLOW
-func AggregateWithPolicy(results []*guardv1.DetectorResult, cfg AggregatorConfig, policy *PolicyConfig) AggregateResult {
-	verdict := guardv1.Verdict_VERDICT_ALLOW
+func AggregateWithPolicy(results []*DetectorResult, cfg AggregatorConfig, policy *PolicyConfig) AggregateResult {
+	verdict := VerdictAllow
 	var triggeredNames []string
 
 	for _, r := range results {
@@ -56,9 +54,9 @@ func AggregateWithPolicy(results []*guardv1.DetectorResult, cfg AggregatorConfig
 		flagThreshold := dp.EffectiveFlagThreshold(cfg.FlagThreshold)
 
 		if r.Confidence >= blockThreshold {
-			verdict = guardv1.Verdict_VERDICT_BLOCK
-		} else if r.Confidence >= flagThreshold && verdict != guardv1.Verdict_VERDICT_BLOCK {
-			verdict = guardv1.Verdict_VERDICT_FLAG
+			verdict = VerdictBlock
+		} else if r.Confidence >= flagThreshold && verdict != VerdictBlock {
+			verdict = VerdictFlag
 		}
 	}
 

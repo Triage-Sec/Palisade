@@ -2,8 +2,6 @@ package engine
 
 import (
 	"context"
-
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 )
 
 // Detector is the interface every security detector must implement.
@@ -13,7 +11,7 @@ type Detector interface {
 	Name() string
 
 	// Category returns the threat category this detector covers.
-	Category() guardv1.ThreatCategory
+	Category() ThreatCategory
 
 	// Detect runs the detection logic against the given request.
 	// Must respect ctx deadline. Return early if ctx is cancelled.
@@ -23,10 +21,10 @@ type Detector interface {
 // DetectRequest contains the payload and context for a detection run.
 type DetectRequest struct {
 	Payload       string
-	Action        guardv1.ActionType
-	ToolCall      *guardv1.ToolCall // nil unless action == ACTION_TYPE_TOOL_CALL
-	ToolAllowList []string          // Per-project tool allowlist (set by engine from policy)
-	ToolBlockList []string          // Per-project tool blocklist (set by engine from policy)
+	Action        ActionType
+	ToolCall      *ToolCall // nil unless action == ActionToolCall
+	ToolAllowList []string  // Per-project tool allowlist (set by engine from policy)
+	ToolBlockList []string  // Per-project tool blocklist (set by engine from policy)
 }
 
 // DetectResult is the outcome of a single detector run.

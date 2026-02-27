@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"github.com/triage-ai/palisade/internal/engine"
 )
 
@@ -51,7 +50,7 @@ func TestPIIDetector_TruePositives(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := d.Detect(ctx, &engine.DetectRequest{
 				Payload: tt.payload,
-				Action:  guardv1.ActionType_ACTION_TYPE_LLM_OUTPUT,
+				Action:  engine.ActionLLMOutput,
 			})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -88,7 +87,7 @@ func TestPIIDetector_TrueNegatives(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := d.Detect(ctx, &engine.DetectRequest{
 				Payload: tt.payload,
-				Action:  guardv1.ActionType_ACTION_TYPE_LLM_OUTPUT,
+				Action:  engine.ActionLLMOutput,
 			})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -106,7 +105,7 @@ func TestPIIDetector_MultiplePIITypes(t *testing.T) {
 
 	result, err := d.Detect(ctx, &engine.DetectRequest{
 		Payload: "SSN: 123-45-6789, email: test@example.com, card: 4111111111111111",
-		Action:  guardv1.ActionType_ACTION_TYPE_LLM_OUTPUT,
+		Action:  engine.ActionLLMOutput,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -124,7 +123,7 @@ func BenchmarkPIIDetector_Safe(b *testing.B) {
 	ctx := context.Background()
 	req := &engine.DetectRequest{
 		Payload: "The weather today is sunny and warm with a high of 75 degrees",
-		Action:  guardv1.ActionType_ACTION_TYPE_LLM_OUTPUT,
+		Action:  engine.ActionLLMOutput,
 	}
 
 	b.ResetTimer()
@@ -139,7 +138,7 @@ func BenchmarkPIIDetector_WithPII(b *testing.B) {
 	ctx := context.Background()
 	req := &engine.DetectRequest{
 		Payload: "My SSN is 123-45-6789 and card is 4111-1111-1111-1111",
-		Action:  guardv1.ActionType_ACTION_TYPE_LLM_OUTPUT,
+		Action:  engine.ActionLLMOutput,
 	}
 
 	b.ResetTimer()

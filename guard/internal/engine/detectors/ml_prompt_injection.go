@@ -7,7 +7,6 @@ import (
 	"time"
 
 	promptguardv1 "github.com/triage-ai/palisade/gen/prompt_guard/v1"
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"github.com/triage-ai/palisade/internal/engine"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -60,8 +59,8 @@ func (d *MLPromptInjectionDetector) Name() string {
 	return "ml_prompt_injection"
 }
 
-func (d *MLPromptInjectionDetector) Category() guardv1.ThreatCategory {
-	return guardv1.ThreatCategory_THREAT_CATEGORY_PROMPT_INJECTION
+func (d *MLPromptInjectionDetector) Category() engine.ThreatCategory {
+	return engine.CategoryPromptInjection
 }
 
 func (d *MLPromptInjectionDetector) Detect(ctx context.Context, req *engine.DetectRequest) (*engine.DetectResult, error) {

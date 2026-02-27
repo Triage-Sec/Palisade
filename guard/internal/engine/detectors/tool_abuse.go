@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strings"
 
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"github.com/triage-ai/palisade/internal/engine"
 )
 
@@ -69,8 +68,8 @@ func (d *ToolAbuseDetector) Name() string {
 	return "tool_abuse"
 }
 
-func (d *ToolAbuseDetector) Category() guardv1.ThreatCategory {
-	return guardv1.ThreatCategory_THREAT_CATEGORY_TOOL_ABUSE
+func (d *ToolAbuseDetector) Category() engine.ThreatCategory {
+	return engine.CategoryToolAbuse
 }
 
 func (d *ToolAbuseDetector) Detect(ctx context.Context, req *engine.DetectRequest) (*engine.DetectResult, error) {
@@ -114,8 +113,8 @@ func (d *ToolAbuseDetector) Detect(ctx context.Context, req *engine.DetectReques
 	// Scan both the payload and the tool call arguments for injection patterns.
 	// Malicious content can appear in either field.
 	targets := []string{req.Payload}
-	if req.ToolCall != nil && req.ToolCall.ArgumentsJson != "" {
-		targets = append(targets, req.ToolCall.ArgumentsJson)
+	if req.ToolCall != nil && req.ToolCall.ArgumentsJSON != "" {
+		targets = append(targets, req.ToolCall.ArgumentsJSON)
 	}
 
 	// SQL injection patterns
@@ -134,8 +133,8 @@ func (d *ToolAbuseDetector) Detect(ctx context.Context, req *engine.DetectReques
 	}
 
 	// Command injection patterns (only for tool calls and DB queries)
-	if req.Action == guardv1.ActionType_ACTION_TYPE_TOOL_CALL ||
-		req.Action == guardv1.ActionType_ACTION_TYPE_DB_QUERY {
+	if req.Action == engine.ActionToolCall ||
+		req.Action == engine.ActionDBQuery {
 		for _, target := range targets {
 			for _, p := range commandInjectionPatterns {
 				if ctx.Err() != nil {

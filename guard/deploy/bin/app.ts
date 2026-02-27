@@ -15,12 +15,10 @@ const env: cdk.Environment = {
 };
 
 // -------------------------------------------------------------------
-// TODO: Replace this VPC ID with your actual VPC ID.
+// VPC ID — set via VPC_ID env var or fallback to default.
 //
 // Find it with:  aws ec2 describe-vpcs --region us-west-1 \
 //                  --query 'Vpcs[*].{Id:VpcId,Name:Tags[?Key==`Name`].Value|[0]}'
-//
-// If the backend already runs in an ECS cluster, use the same VPC.
 // -------------------------------------------------------------------
 const vpcId = process.env.VPC_ID || "vpc-0455335f7f14d1a44";
 

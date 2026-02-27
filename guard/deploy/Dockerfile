@@ -11,10 +11,9 @@ COPY guard/go.mod guard/go.sum ./guard/
 WORKDIR /src/guard
 RUN go mod download
 
-# Copy source code (guard + proto for generated stubs).
+# Copy source code.
 WORKDIR /src
 COPY guard/ ./guard/
-COPY proto/ ./proto/
 
 # Build a static binary (no cgo, no libc dependency).
 # -s strips symbol table, -w strips DWARF — shrinks binary ~30%.
@@ -30,6 +29,6 @@ FROM gcr.io/distroless/static-debian12:nonroot
 
 COPY --from=builder /guard-server /guard-server
 
-EXPOSE 50051
+EXPOSE 8080
 
 ENTRYPOINT ["/guard-server"]

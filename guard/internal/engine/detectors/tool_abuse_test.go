@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"github.com/triage-ai/palisade/internal/engine"
 )
 
@@ -18,10 +17,10 @@ func TestToolAbuseDetector_BlockedFunctions(t *testing.T) {
 		t.Run("blocked_"+fn, func(t *testing.T) {
 			result, err := d.Detect(ctx, &engine.DetectRequest{
 				Payload: "some arguments",
-				Action:  guardv1.ActionType_ACTION_TYPE_TOOL_CALL,
-				ToolCall: &guardv1.ToolCall{
+				Action:  engine.ActionToolCall,
+				ToolCall: &engine.ToolCall{
 					FunctionName:  fn,
-					ArgumentsJson: `{"path": "/tmp/test"}`,
+					ArgumentsJSON: `{"path": "/tmp/test"}`,
 				},
 			})
 			if err != nil {
@@ -47,10 +46,10 @@ func TestToolAbuseDetector_SafeFunctions(t *testing.T) {
 		t.Run("safe_"+fn, func(t *testing.T) {
 			result, err := d.Detect(ctx, &engine.DetectRequest{
 				Payload: `{"query": "hello"}`,
-				Action:  guardv1.ActionType_ACTION_TYPE_TOOL_CALL,
-				ToolCall: &guardv1.ToolCall{
+				Action:  engine.ActionToolCall,
+				ToolCall: &engine.ToolCall{
 					FunctionName:  fn,
-					ArgumentsJson: `{"query": "hello"}`,
+					ArgumentsJSON: `{"query": "hello"}`,
 				},
 			})
 			if err != nil {
@@ -85,7 +84,7 @@ func TestToolAbuseDetector_SQLInjection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := d.Detect(ctx, &engine.DetectRequest{
 				Payload: tt.payload,
-				Action:  guardv1.ActionType_ACTION_TYPE_DB_QUERY,
+				Action:  engine.ActionDBQuery,
 			})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -116,10 +115,10 @@ func TestToolAbuseDetector_CommandInjection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := d.Detect(ctx, &engine.DetectRequest{
 				Payload: tt.payload,
-				Action:  guardv1.ActionType_ACTION_TYPE_TOOL_CALL,
-				ToolCall: &guardv1.ToolCall{
+				Action:  engine.ActionToolCall,
+				ToolCall: &engine.ToolCall{
 					FunctionName:  "run_command",
-					ArgumentsJson: tt.payload,
+					ArgumentsJSON: tt.payload,
 				},
 			})
 			if err != nil {
@@ -150,7 +149,7 @@ func TestToolAbuseDetector_SafeQueries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := d.Detect(ctx, &engine.DetectRequest{
 				Payload: tt.payload,
-				Action:  guardv1.ActionType_ACTION_TYPE_DB_QUERY,
+				Action:  engine.ActionDBQuery,
 			})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -169,7 +168,7 @@ func TestToolAbuseDetector_NoToolCall(t *testing.T) {
 	// Non-tool actions with safe payloads should not trigger
 	result, err := d.Detect(ctx, &engine.DetectRequest{
 		Payload: "What is the weather today?",
-		Action:  guardv1.ActionType_ACTION_TYPE_LLM_INPUT,
+		Action:  engine.ActionLLMInput,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -184,10 +183,10 @@ func BenchmarkToolAbuseDetector_Safe(b *testing.B) {
 	ctx := context.Background()
 	req := &engine.DetectRequest{
 		Payload: `{"query": "SELECT name FROM users WHERE id = 42"}`,
-		Action:  guardv1.ActionType_ACTION_TYPE_TOOL_CALL,
-		ToolCall: &guardv1.ToolCall{
+		Action:  engine.ActionToolCall,
+		ToolCall: &engine.ToolCall{
 			FunctionName:  "run_query",
-			ArgumentsJson: `{"query": "SELECT name FROM users WHERE id = 42"}`,
+			ArgumentsJSON: `{"query": "SELECT name FROM users WHERE id = 42"}`,
 		},
 	}
 
@@ -203,7 +202,7 @@ func BenchmarkToolAbuseDetector_SQLInjection(b *testing.B) {
 	ctx := context.Background()
 	req := &engine.DetectRequest{
 		Payload: "SELECT * FROM users; DROP TABLE users;",
-		Action:  guardv1.ActionType_ACTION_TYPE_DB_QUERY,
+		Action:  engine.ActionDBQuery,
 	}
 
 	b.ResetTimer()

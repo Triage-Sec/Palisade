@@ -4,7 +4,6 @@ import (
 	"context"
 	"regexp"
 
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"github.com/triage-ai/palisade/internal/engine"
 )
 
@@ -58,8 +57,8 @@ func (d *JailbreakDetector) Name() string {
 	return "jailbreak"
 }
 
-func (d *JailbreakDetector) Category() guardv1.ThreatCategory {
-	return guardv1.ThreatCategory_THREAT_CATEGORY_JAILBREAK
+func (d *JailbreakDetector) Category() engine.ThreatCategory {
+	return engine.CategoryJailbreak
 }
 
 func (d *JailbreakDetector) Detect(ctx context.Context, req *engine.DetectRequest) (*engine.DetectResult, error) {

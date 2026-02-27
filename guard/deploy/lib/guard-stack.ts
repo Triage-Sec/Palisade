@@ -13,7 +13,7 @@ export interface GuardStackProps extends cdk.StackProps {
   /** Docker image tag to deploy (e.g. "0.1.0" from the git tag) */
   imageTag: string;
 
-  /** VPC ID to deploy into (shared with backend) */
+  /** VPC ID to deploy into */
   vpcId: string;
 }
 
@@ -24,8 +24,7 @@ export class GuardStack extends cdk.Stack {
     const { envName, imageTag, vpcId } = props;
 
     // ---------------------------------------------------------------
-    // VPC — look up the existing VPC shared with the backend.
-    // This avoids creating a duplicate VPC.
+    // VPC — look up the existing VPC.
     // ---------------------------------------------------------------
     const vpc = ec2.Vpc.fromLookup(this, "Vpc", { vpcId });
 
@@ -68,6 +67,7 @@ export class GuardStack extends cdk.Stack {
 
     const clickhouseDsn = process.env.CLICKHOUSE_DSN || "";
     const promptGuardEndpoint = process.env.PROMPT_GUARD_ENDPOINT || "";
+    const postgresDsn = process.env.POSTGRES_DSN || "";
 
     // Guard container — the main gRPC server
     taskDef.addContainer("guard", {
@@ -75,7 +75,7 @@ export class GuardStack extends cdk.Stack {
       essential: true,
       portMappings: [
         {
-          containerPort: 50051,
+          containerPort: 8080,
           protocol: ecs.Protocol.TCP,
         },
       ],
@@ -84,28 +84,30 @@ export class GuardStack extends cdk.Stack {
         streamPrefix: "guard",
       }),
       environment: {
-        GUARD_PORT: "50051",
+        GUARD_HTTP_PORT: "8080",
         GUARD_LOG_LEVEL: envName === "prod" ? "info" : "debug",
         GUARD_DETECTOR_TIMEOUT_MS: "100",
         GUARD_BLOCK_THRESHOLD: "0.8",
         GUARD_FLAG_THRESHOLD: "0.0",
+        GUARD_AUTH_CACHE_TTL_S: "30",
         CLICKHOUSE_DSN: clickhouseDsn,
+        POSTGRES_DSN: postgresDsn,
         PROMPT_GUARD_ENDPOINT: promptGuardEndpoint,
       },
     });
 
     // ---------------------------------------------------------------
-    // Security Group — allow inbound gRPC traffic on port 50051.
+    // Security Group — allow inbound HTTP traffic on port 8080.
     // ---------------------------------------------------------------
     const sg = new ec2.SecurityGroup(this, "GuardSg", {
       vpc,
-      description: "Allow inbound gRPC traffic to guard service",
+      description: "Allow inbound HTTP traffic to guard service",
       allowAllOutbound: true,
     });
     sg.addIngressRule(
       ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(50051),
-      "gRPC from anywhere"
+      ec2.Port.tcp(8080),
+      "HTTP API from anywhere"
     );
 
     // ---------------------------------------------------------------
@@ -142,12 +144,7 @@ export class GuardStack extends cdk.Stack {
     });
 
     // ---------------------------------------------------------------
-    // NLB — Network Load Balancer for gRPC.
-    //
-    // WHY NLB (not ALB):
-    // ALB terminates HTTP/2 and re-opens HTTP/1.1 to backends,
-    // which breaks gRPC. NLB does TCP passthrough, so the HTTP/2
-    // connection goes end-to-end from SDK → guard service.
+    // NLB — Network Load Balancer for the HTTP API.
     // ---------------------------------------------------------------
     const nlb = new elbv2.NetworkLoadBalancer(this, "NLB", {
       vpc,
@@ -156,17 +153,18 @@ export class GuardStack extends cdk.Stack {
       crossZoneEnabled: true,
     });
 
-    const listener = nlb.addListener("GrpcListener", {
-      port: 50051,
+    const httpListener = nlb.addListener("HttpListener", {
+      port: 8080,
       protocol: elbv2.Protocol.TCP,
     });
 
-    listener.addTargets("GuardTargets", {
-      port: 50051,
+    httpListener.addTargets("GuardHttpTargets", {
+      port: 8080,
       protocol: elbv2.Protocol.TCP,
       targets: [service],
       healthCheck: {
-        protocol: elbv2.Protocol.TCP,
+        protocol: elbv2.Protocol.HTTP,
+        path: "/healthz",
         interval: cdk.Duration.seconds(10),
         healthyThresholdCount: 2,
         unhealthyThresholdCount: 2,
@@ -181,7 +179,7 @@ export class GuardStack extends cdk.Stack {
     new cdk.CfnOutput(this, "NlbDnsName", {
       value: nlb.loadBalancerDnsName,
       description:
-        "NLB DNS name — use this as the gRPC target in SDKs (host:50051)",
+        "NLB DNS name — use this as the API target (host:8080)",
     });
 
     new cdk.CfnOutput(this, "EcrRepoUri", {

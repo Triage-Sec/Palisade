@@ -4,7 +4,6 @@ import (
 	"context"
 	"regexp"
 
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"github.com/triage-ai/palisade/internal/engine"
 )
 
@@ -52,8 +51,8 @@ func (d *PIIDetector) Name() string {
 	return "pii"
 }
 
-func (d *PIIDetector) Category() guardv1.ThreatCategory {
-	return guardv1.ThreatCategory_THREAT_CATEGORY_PII_LEAKAGE
+func (d *PIIDetector) Category() engine.ThreatCategory {
+	return engine.CategoryPIILeakage
 }
 
 func (d *PIIDetector) Detect(ctx context.Context, req *engine.DetectRequest) (*engine.DetectResult, error) {

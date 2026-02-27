@@ -2,20 +2,18 @@ package engine
 
 import (
 	"testing"
-
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 )
 
 func TestAggregate_AllClear(t *testing.T) {
 	cfg := DefaultAggregatorConfig()
-	results := []*guardv1.DetectorResult{
+	results := []*DetectorResult{
 		{Detector: "prompt_injection", Triggered: false, Confidence: 0},
 		{Detector: "pii", Triggered: false, Confidence: 0},
 		{Detector: "jailbreak", Triggered: false, Confidence: 0},
 	}
 
 	agg := Aggregate(results, cfg)
-	if agg.Verdict != guardv1.Verdict_VERDICT_ALLOW {
+	if agg.Verdict != VerdictAllow {
 		t.Errorf("expected ALLOW, got %v", agg.Verdict)
 	}
 	if agg.Reason != "" {
@@ -25,14 +23,14 @@ func TestAggregate_AllClear(t *testing.T) {
 
 func TestAggregate_SingleBlock(t *testing.T) {
 	cfg := DefaultAggregatorConfig()
-	results := []*guardv1.DetectorResult{
+	results := []*DetectorResult{
 		{Detector: "prompt_injection", Triggered: true, Confidence: 0.95},
 		{Detector: "pii", Triggered: false, Confidence: 0},
 		{Detector: "jailbreak", Triggered: false, Confidence: 0},
 	}
 
 	agg := Aggregate(results, cfg)
-	if agg.Verdict != guardv1.Verdict_VERDICT_BLOCK {
+	if agg.Verdict != VerdictBlock {
 		t.Errorf("expected BLOCK, got %v", agg.Verdict)
 	}
 	if agg.Reason != "triggered: prompt_injection" {
@@ -42,27 +40,27 @@ func TestAggregate_SingleBlock(t *testing.T) {
 
 func TestAggregate_SingleFlag(t *testing.T) {
 	cfg := DefaultAggregatorConfig()
-	results := []*guardv1.DetectorResult{
+	results := []*DetectorResult{
 		{Detector: "prompt_injection", Triggered: true, Confidence: 0.5},
 		{Detector: "pii", Triggered: false, Confidence: 0},
 	}
 
 	agg := Aggregate(results, cfg)
-	if agg.Verdict != guardv1.Verdict_VERDICT_FLAG {
+	if agg.Verdict != VerdictFlag {
 		t.Errorf("expected FLAG, got %v", agg.Verdict)
 	}
 }
 
 func TestAggregate_BlockOverridesFlag(t *testing.T) {
 	cfg := DefaultAggregatorConfig()
-	results := []*guardv1.DetectorResult{
+	results := []*DetectorResult{
 		{Detector: "prompt_injection", Triggered: true, Confidence: 0.5},  // FLAG-level
 		{Detector: "pii", Triggered: true, Confidence: 0.9},              // BLOCK-level
 		{Detector: "jailbreak", Triggered: true, Confidence: 0.3},        // FLAG-level
 	}
 
 	agg := Aggregate(results, cfg)
-	if agg.Verdict != guardv1.Verdict_VERDICT_BLOCK {
+	if agg.Verdict != VerdictBlock {
 		t.Errorf("expected BLOCK (highest wins), got %v", agg.Verdict)
 	}
 	if agg.Reason != "triggered: prompt_injection, pii, jailbreak" {
@@ -72,24 +70,24 @@ func TestAggregate_BlockOverridesFlag(t *testing.T) {
 
 func TestAggregate_ExactBlockThreshold(t *testing.T) {
 	cfg := DefaultAggregatorConfig() // BlockThreshold = 0.8
-	results := []*guardv1.DetectorResult{
+	results := []*DetectorResult{
 		{Detector: "pii", Triggered: true, Confidence: 0.8}, // Exactly at threshold
 	}
 
 	agg := Aggregate(results, cfg)
-	if agg.Verdict != guardv1.Verdict_VERDICT_BLOCK {
+	if agg.Verdict != VerdictBlock {
 		t.Errorf("expected BLOCK at exact threshold, got %v", agg.Verdict)
 	}
 }
 
 func TestAggregate_JustBelowBlockThreshold(t *testing.T) {
 	cfg := DefaultAggregatorConfig()
-	results := []*guardv1.DetectorResult{
+	results := []*DetectorResult{
 		{Detector: "pii", Triggered: true, Confidence: 0.79},
 	}
 
 	agg := Aggregate(results, cfg)
-	if agg.Verdict != guardv1.Verdict_VERDICT_FLAG {
+	if agg.Verdict != VerdictFlag {
 		t.Errorf("expected FLAG just below block threshold, got %v", agg.Verdict)
 	}
 }
@@ -99,13 +97,13 @@ func TestAggregate_CustomThresholds(t *testing.T) {
 		BlockThreshold: 0.9,
 		FlagThreshold:  0.5,
 	}
-	results := []*guardv1.DetectorResult{
+	results := []*DetectorResult{
 		{Detector: "prompt_injection", Triggered: true, Confidence: 0.85},
 	}
 
 	agg := Aggregate(results, cfg)
 	// 0.85 >= 0.5 (flag) but < 0.9 (block) → FLAG
-	if agg.Verdict != guardv1.Verdict_VERDICT_FLAG {
+	if agg.Verdict != VerdictFlag {
 		t.Errorf("expected FLAG with custom thresholds, got %v", agg.Verdict)
 	}
 }
@@ -115,13 +113,13 @@ func TestAggregate_BelowFlagThreshold(t *testing.T) {
 		BlockThreshold: 0.9,
 		FlagThreshold:  0.5,
 	}
-	results := []*guardv1.DetectorResult{
+	results := []*DetectorResult{
 		{Detector: "prompt_injection", Triggered: true, Confidence: 0.3},
 	}
 
 	agg := Aggregate(results, cfg)
 	// 0.3 < 0.5 (flag threshold) → still ALLOW because below flag threshold
-	if agg.Verdict != guardv1.Verdict_VERDICT_ALLOW {
+	if agg.Verdict != VerdictAllow {
 		t.Errorf("expected ALLOW below flag threshold, got %v", agg.Verdict)
 	}
 }
@@ -130,14 +128,14 @@ func TestAggregate_EmptyResults(t *testing.T) {
 	cfg := DefaultAggregatorConfig()
 	agg := Aggregate(nil, cfg)
 
-	if agg.Verdict != guardv1.Verdict_VERDICT_ALLOW {
+	if agg.Verdict != VerdictAllow {
 		t.Errorf("expected ALLOW for empty results, got %v", agg.Verdict)
 	}
 }
 
 func TestAggregate_MultipleTriggeredReasons(t *testing.T) {
 	cfg := DefaultAggregatorConfig()
-	results := []*guardv1.DetectorResult{
+	results := []*DetectorResult{
 		{Detector: "prompt_injection", Triggered: true, Confidence: 0.95},
 		{Detector: "jailbreak", Triggered: true, Confidence: 0.90},
 		{Detector: "pii", Triggered: false, Confidence: 0},
@@ -151,7 +149,7 @@ func TestAggregate_MultipleTriggeredReasons(t *testing.T) {
 
 func BenchmarkAggregate(b *testing.B) {
 	cfg := DefaultAggregatorConfig()
-	results := []*guardv1.DetectorResult{
+	results := []*DetectorResult{
 		{Detector: "prompt_injection", Triggered: true, Confidence: 0.95},
 		{Detector: "jailbreak", Triggered: false, Confidence: 0},
 		{Detector: "pii", Triggered: true, Confidence: 0.5},

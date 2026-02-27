@@ -9,7 +9,7 @@ BUILD_DIR := bin
 PROTO_DIR := ../proto
 GEN_DIR := gen
 
-.PHONY: proto proto-prompt-guard build test bench lint docker run migrate-up migrate-down migrate-create
+.PHONY: proto-prompt-guard build test bench lint docker run migrate-up migrate-down migrate-create
 
 ## — Build & Run —
 
@@ -17,16 +17,9 @@ build:
 	go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/guard-server/
 
 run: build
-	CLICKHOUSE_DSN="$(CLICKHOUSE_DSN)" ./$(BUILD_DIR)/$(BINARY_NAME)
+	./$(BUILD_DIR)/$(BINARY_NAME)
 
 ## — Proto —
-
-proto:
-	protoc \
-		--go_out=$(GEN_DIR) --go_opt=paths=source_relative \
-		--go-grpc_out=$(GEN_DIR) --go-grpc_opt=paths=source_relative \
-		-I $(PROTO_DIR) \
-		$(PROTO_DIR)/guard/v1/guard.proto
 
 proto-prompt-guard:
 	protoc \

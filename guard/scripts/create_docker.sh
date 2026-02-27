@@ -33,7 +33,7 @@ aws ecr describe-repositories --repository-names "${ECR_REPO}" --region "${AWS_R
 aws ecr get-login-password --region "${AWS_REGION}" | \
   docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
-# Build from repo root (Dockerfile needs guard/ and proto/ directories).
+# Build from repo root (Dockerfile needs guard/ directory).
 docker build \
   -f guard/deploy/Dockerfile \
   -t "${ECR_REGISTRY}/${ECR_REPO}:${VERSION}" \

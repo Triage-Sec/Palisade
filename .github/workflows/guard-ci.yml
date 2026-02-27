@@ -5,12 +5,10 @@ on:
     branches: [main]
     paths:
       - "guard/**"
-      - "proto/**"
       - ".github/workflows/guard-ci.yml"
   pull_request:
     paths:
       - "guard/**"
-      - "proto/**"
       - ".github/workflows/guard-ci.yml"
 
 permissions:

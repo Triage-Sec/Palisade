@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strings"
 
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"github.com/triage-ai/palisade/internal/engine"
 )
 
@@ -55,8 +54,8 @@ func (d *ContentModDetector) Name() string {
 	return "content_mod"
 }
 
-func (d *ContentModDetector) Category() guardv1.ThreatCategory {
-	return guardv1.ThreatCategory_THREAT_CATEGORY_CONTENT_MODERATION
+func (d *ContentModDetector) Category() engine.ThreatCategory {
+	return engine.CategoryContentModeration
 }
 
 func (d *ContentModDetector) Detect(ctx context.Context, req *engine.DetectRequest) (*engine.DetectResult, error) {

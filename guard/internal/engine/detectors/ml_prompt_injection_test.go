@@ -7,7 +7,6 @@ import (
 	"time"
 
 	promptguardv1 "github.com/triage-ai/palisade/gen/prompt_guard/v1"
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"github.com/triage-ai/palisade/internal/engine"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -74,7 +73,7 @@ func TestMLPromptInjectionDetector_Category(t *testing.T) {
 	}
 	defer det.Close() //nolint:errcheck // test cleanup
 
-	if det.Category() != guardv1.ThreatCategory_THREAT_CATEGORY_PROMPT_INJECTION {
+	if det.Category() != engine.CategoryPromptInjection {
 		t.Errorf("Category() = %v, want PROMPT_INJECTION", det.Category())
 	}
 }

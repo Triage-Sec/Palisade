@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +27,7 @@ func NewSentryEngine(detectors []Detector, timeout time.Duration, logger *zap.Lo
 // detectorOutput holds a single detector's result alongside its metadata.
 type detectorOutput struct {
 	name     string
-	category guardv1.ThreatCategory
+	category ThreatCategory
 	result   *DetectResult
 	err      error
 }
@@ -46,7 +45,7 @@ type detectorOutput struct {
 // whatever has been collected. Late-finishing goroutines send into the
 // buffered channel (which has capacity for all detectors) and are never
 // read — the channel is GC'd once all references are gone.
-func (e *SentryEngine) Evaluate(ctx context.Context, req *DetectRequest, policy *PolicyConfig) ([]*guardv1.DetectorResult, time.Duration) {
+func (e *SentryEngine) Evaluate(ctx context.Context, req *DetectRequest, policy *PolicyConfig) ([]*DetectorResult, time.Duration) {
 	start := time.Now()
 
 	ctx, cancel := context.WithTimeout(ctx, e.timeout)
@@ -108,14 +107,14 @@ func (e *SentryEngine) Evaluate(ctx context.Context, req *DetectRequest, policy 
 		}
 	}
 
-	results := make([]*guardv1.DetectorResult, 0, len(collected))
+	results := make([]*DetectorResult, 0, len(collected))
 	for _, out := range collected {
 		if out.err != nil {
 			e.logger.Warn("detector error",
 				zap.String("detector", out.name),
 				zap.Error(out.err),
 			)
-			results = append(results, &guardv1.DetectorResult{
+			results = append(results, &DetectorResult{
 				Detector:   out.name,
 				Triggered:  false,
 				Confidence: 0,
@@ -127,7 +126,7 @@ func (e *SentryEngine) Evaluate(ctx context.Context, req *DetectRequest, policy 
 		if out.result == nil {
 			continue
 		}
-		results = append(results, &guardv1.DetectorResult{
+		results = append(results, &DetectorResult{
 			Detector:   out.name,
 			Triggered:  out.result.Triggered,
 			Confidence: out.result.Confidence,

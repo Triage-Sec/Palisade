@@ -4,7 +4,6 @@ import (
 	"context"
 	"regexp"
 
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"github.com/triage-ai/palisade/internal/engine"
 )
 
@@ -47,8 +46,8 @@ func (d *PromptInjectionDetector) Name() string {
 	return "prompt_injection"
 }
 
-func (d *PromptInjectionDetector) Category() guardv1.ThreatCategory {
-	return guardv1.ThreatCategory_THREAT_CATEGORY_PROMPT_INJECTION
+func (d *PromptInjectionDetector) Category() engine.ThreatCategory {
+	return engine.CategoryPromptInjection
 }
 
 func (d *PromptInjectionDetector) Detect(ctx context.Context, req *engine.DetectRequest) (*engine.DetectResult, error) {

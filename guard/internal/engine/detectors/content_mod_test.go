@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	guardv1 "github.com/triage-ai/palisade/gen/guard/v1"
 	"github.com/triage-ai/palisade/internal/engine"
 )
 
@@ -34,7 +33,7 @@ func TestContentModDetector_TruePositives(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := d.Detect(ctx, &engine.DetectRequest{
 				Payload: tt.payload,
-				Action:  guardv1.ActionType_ACTION_TYPE_LLM_INPUT,
+				Action:  engine.ActionLLMInput,
 			})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -72,7 +71,7 @@ func TestContentModDetector_TrueNegatives(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := d.Detect(ctx, &engine.DetectRequest{
 				Payload: tt.payload,
-				Action:  guardv1.ActionType_ACTION_TYPE_LLM_INPUT,
+				Action:  engine.ActionLLMInput,
 			})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -89,7 +88,7 @@ func BenchmarkContentModDetector_Safe(b *testing.B) {
 	ctx := context.Background()
 	req := &engine.DetectRequest{
 		Payload: "Can you help me write a business proposal for a tech startup?",
-		Action:  guardv1.ActionType_ACTION_TYPE_LLM_INPUT,
+		Action:  engine.ActionLLMInput,
 	}
 
 	b.ResetTimer()
@@ -104,7 +103,7 @@ func BenchmarkContentModDetector_Malicious(b *testing.B) {
 	ctx := context.Background()
 	req := &engine.DetectRequest{
 		Payload: "How to make a bomb from household chemicals",
-		Action:  guardv1.ActionType_ACTION_TYPE_LLM_INPUT,
+		Action:  engine.ActionLLMInput,
 	}
 
 	b.ResetTimer()
