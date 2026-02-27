@@ -347,7 +347,7 @@ def main():
     print(f"Device: {device}")
     if device.type == "cuda":
         print(f"GPU: {torch.cuda.get_device_name()}")
-        print(f"Memory: {torch.cuda.get_device_properties(0).total_mem / 1e9:.1f} GB")
+        print(f"Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
 
     # Load data
     print(f"\nLoading data from {args.data}")
@@ -456,15 +456,6 @@ def main():
                 json.dump(config, f, indent=2)
 
             print(f"  Saved best model (F1={best_f1:.4f}) to {save_path}")
-
-        # Save latest checkpoint
-        torch.save({
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "scheduler_state_dict": scheduler.state_dict(),
-            "epoch": epoch,
-            "base_model_name": args.base_model,
-        }, os.path.join(args.output_dir, "latest_checkpoint.pt"))
 
     print(f"\nTraining complete! Best F1: {best_f1:.4f}")
     print(f"Best model saved to: {os.path.join(args.output_dir, 'best_model')}")

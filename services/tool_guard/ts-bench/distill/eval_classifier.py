@@ -26,6 +26,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
+from transformers import AutoTokenizer
 
 from train_classifier import (
     ToolSafetyClassifier,
@@ -291,7 +292,6 @@ def main():
 
     # Load model
     if args.onnx:
-        from transformers import AutoTokenizer
         # Look for tokenizer in same directory as ONNX model
         onnx_dir = str(Path(args.onnx).parent)
         tokenizer = AutoTokenizer.from_pretrained(onnx_dir, trust_remote_code=True)
