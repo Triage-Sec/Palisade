@@ -61,6 +61,7 @@ def export_to_onnx(model, tokenizer, output_dir: str, max_length: int = 1024):
         },
         opset_version=17,
         do_constant_folding=True,
+        dynamo=False,  # Force legacy TorchScript exporter (dynamo can't trace Qwen3 causal mask)
     )
 
     # Save tokenizer and config
