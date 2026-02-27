@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import requests
@@ -229,6 +230,7 @@ def main():
     parser.add_argument("--data-dir", type=str, help="Path to TS-Bench directory")
     parser.add_argument("--output", default="labeled_data.json", help="Output file")
     parser.add_argument("--resume", action="store_true", help="Resume from existing output")
+    parser.add_argument("--workers", type=int, default=16, help="Parallel request workers")
     args = parser.parse_args()
 
     output_path = Path(args.output)
@@ -258,26 +260,25 @@ def main():
     parse_failures = 0
     t_start = time.time()
 
-    for i in tqdm(range(start_idx, len(samples)), desc="Labeling"):
-        sample = samples[i]
+    def process_sample(i, sample):
+        """Process a single sample — runs in thread pool."""
         prompt = format_prompt(sample)
         raw_output = query_vllm(args.url, prompt)
 
         if raw_output is None:
-            # Network error — save what we have and exit
-            print(f"\nFailed at sample {i}. Saving progress...")
-            break
+            return i, None
 
         parsed = parse_tsguard_output(raw_output)
 
         if parsed is None:
-            parse_failures += 1
-            # Retry once with slightly higher temperature
+            # Retry once
             raw_output_retry = query_vllm(args.url, prompt)
             if raw_output_retry:
                 parsed = parse_tsguard_output(raw_output_retry)
+                if parsed:
+                    raw_output = raw_output_retry
 
-        result = {
+        return i, {
             "index": i,
             "dataset": sample["_dataset"],
             "source_file": sample["_source_file"],
@@ -286,7 +287,6 @@ def main():
             "current_action": sample.get("current_action", ""),
             "env_info": sample.get("env_info", ""),
             "ground_truth": float(sample["score"]),
-            # Teacher labels (from TS-Guard 7B)
             "teacher_malicious": parsed["malicious"] if parsed else None,
             "teacher_attacked": parsed["attacked"] if parsed else None,
             "teacher_harmfulness": parsed["harmfulness"] if parsed else None,
@@ -294,16 +294,66 @@ def main():
             "teacher_raw": raw_output,
             "parse_success": parsed is not None,
         }
-        results.append(result)
 
-        # Checkpoint every 100 samples
-        if (i + 1) % 100 == 0:
-            with open(output_path, "w") as f:
-                json.dump(results, f, indent=2)
-            elapsed = time.time() - t_start
-            rate = (i - start_idx + 1) / elapsed
-            remaining = (len(samples) - i - 1) / rate if rate > 0 else 0
-            print(f"  [{i+1}/{len(samples)}] {rate:.1f} samples/s, ~{remaining/60:.0f}m remaining")
+    # Parallel execution — vLLM handles batching internally
+    print(f"Using {args.workers} parallel workers\n")
+    pending = []
+    completed_count = 0
+
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        futures = {
+            executor.submit(process_sample, i, samples[i]): i
+            for i in range(start_idx, len(samples))
+        }
+
+        # Collect results in order using a buffer
+        result_buffer = {}
+        next_idx = start_idx
+        pbar = tqdm(total=len(samples) - start_idx, desc="Labeling")
+
+        for future in as_completed(futures):
+            i, result = future.result()
+            if result is None:
+                parse_failures += 1
+                # Create a placeholder for failed samples
+                result = {
+                    "index": i, "dataset": samples[i]["_dataset"],
+                    "source_file": samples[i]["_source_file"],
+                    "instruction": samples[i]["instruction"],
+                    "history": samples[i].get("history", ""),
+                    "current_action": samples[i].get("current_action", ""),
+                    "env_info": samples[i].get("env_info", ""),
+                    "ground_truth": float(samples[i]["score"]),
+                    "teacher_malicious": None, "teacher_attacked": None,
+                    "teacher_harmfulness": None, "teacher_composite": None,
+                    "teacher_raw": None, "parse_success": False,
+                }
+            elif not result["parse_success"]:
+                parse_failures += 1
+
+            result_buffer[i] = result
+            pbar.update(1)
+            completed_count += 1
+
+            # Flush buffer in order
+            while next_idx in result_buffer:
+                results.append(result_buffer.pop(next_idx))
+                next_idx += 1
+
+            # Checkpoint every 200 samples
+            if completed_count % 200 == 0:
+                with open(output_path, "w") as f:
+                    json.dump(results, f, indent=2)
+                elapsed = time.time() - t_start
+                rate = completed_count / elapsed
+                remaining = (len(samples) - start_idx - completed_count) / rate if rate > 0 else 0
+                pbar.set_postfix(rate=f"{rate:.1f}/s", eta=f"{remaining/60:.0f}m")
+
+        # Flush remaining
+        while next_idx in result_buffer:
+            results.append(result_buffer.pop(next_idx))
+            next_idx += 1
+        pbar.close()
 
     # Final save
     with open(output_path, "w") as f:
