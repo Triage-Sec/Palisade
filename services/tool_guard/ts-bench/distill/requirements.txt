@@ -1,0 +1,9 @@
+torch
+transformers>=4.43.0
+accelerate
+scikit-learn
+tqdm
+requests
+onnx
+onnxruntime-gpu
+numpy
