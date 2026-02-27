@@ -457,15 +457,6 @@ def main():
 
             print(f"  Saved best model (F1={best_f1:.4f}) to {save_path}")
 
-        # Save latest checkpoint
-        torch.save({
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "scheduler_state_dict": scheduler.state_dict(),
-            "epoch": epoch,
-            "base_model_name": args.base_model,
-        }, os.path.join(args.output_dir, "latest_checkpoint.pt"))
-
     print(f"\nTraining complete! Best F1: {best_f1:.4f}")
     print(f"Best model saved to: {os.path.join(args.output_dir, 'best_model')}")
 
