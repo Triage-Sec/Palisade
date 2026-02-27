@@ -234,13 +234,30 @@ def main():
     # Swap backbone to eager attention for ONNX tracing compatibility
     # (Qwen3's default SDPA attention uses vmap which is untraceable)
     backbone_state = model.backbone.state_dict()
-    model.backbone = AutoModelForCausalLM.from_pretrained(
+    eager_backbone = AutoModelForCausalLM.from_pretrained(
         base_model_name,
         trust_remote_code=True,
         attn_implementation="eager",
         torch_dtype=torch.float32,
     )
-    model.backbone.load_state_dict(backbone_state)
+
+    # Remap state dict keys — trained model may use different prefix than fresh model
+    eager_expected = set(eager_backbone.state_dict().keys())
+    remapped_state = {}
+    for k, v in backbone_state.items():
+        if k in eager_expected:
+            remapped_state[k] = v
+        elif f"model.{k}" in eager_expected:
+            remapped_state[f"model.{k}"] = v
+        else:
+            remapped_state[k] = v
+    # Keep pretrained weights for keys not in checkpoint (e.g., lm_head)
+    for k, v in eager_backbone.state_dict().items():
+        if k not in remapped_state:
+            remapped_state[k] = v
+
+    eager_backbone.load_state_dict(remapped_state)
+    model.backbone = eager_backbone
     print("Swapped backbone to eager attention for ONNX export")
 
     # Export
