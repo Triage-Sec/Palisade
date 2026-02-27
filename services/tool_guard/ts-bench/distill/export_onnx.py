@@ -18,9 +18,32 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer
 
 from train_classifier import ToolSafetyClassifier, TSGUARD_PROMPT_TEMPLATE
+
+
+def _traceable_create_causal_mask(config, input_tensor, cache_position,
+                                   past_key_values=None, attention_mask=None, **kwargs):
+    """Simple causal mask that replaces the vmap-based version for ONNX tracing."""
+    batch_size, seq_length = input_tensor.shape[:2]
+    dtype = input_tensor.dtype
+    device = input_tensor.device
+
+    # Standard upper-triangular causal mask
+    min_val = torch.finfo(torch.float32).min
+    causal_mask = torch.triu(
+        torch.full((seq_length, seq_length), min_val, device=device, dtype=torch.float32),
+        diagonal=1,
+    )
+    causal_mask = causal_mask.unsqueeze(0).unsqueeze(0).expand(batch_size, 1, -1, -1)
+
+    # Apply padding mask
+    if attention_mask is not None and attention_mask.dim() == 2:
+        padding_mask = (attention_mask == 0).unsqueeze(1).unsqueeze(2)
+        causal_mask = causal_mask.masked_fill(padding_mask, min_val)
+
+    return causal_mask
 
 
 def export_to_onnx(model, tokenizer, output_dir: str, max_length: int = 1024):
@@ -29,6 +52,12 @@ def export_to_onnx(model, tokenizer, output_dir: str, max_length: int = 1024):
 
     model.eval()
     model = model.float()  # ONNX export needs float32
+
+    # Monkeypatch the causal mask to avoid vmap (untraceable by TorchScript/dynamo)
+    import transformers.masking_utils as mu
+    original_create_causal_mask = mu.create_causal_mask
+    mu.create_causal_mask = _traceable_create_causal_mask
+    print("Patched create_causal_mask for ONNX tracing")
 
     # Create dummy input
     dummy_text = "This is a test input for ONNX export."
@@ -61,8 +90,11 @@ def export_to_onnx(model, tokenizer, output_dir: str, max_length: int = 1024):
         },
         opset_version=17,
         do_constant_folding=True,
-        dynamo=False,  # Force legacy TorchScript exporter (dynamo can't trace Qwen3 causal mask)
+        dynamo=False,
     )
+
+    # Restore original
+    mu.create_causal_mask = original_create_causal_mask
 
     # Save tokenizer and config
     tokenizer.save_pretrained(output_dir)
@@ -230,35 +262,6 @@ def main():
     )
     model.load_state_dict(checkpoint["model_state_dict"])
     print(f"Loaded checkpoint from epoch {checkpoint['epoch']}")
-
-    # Swap backbone to eager attention for ONNX tracing compatibility
-    # (Qwen3's default SDPA attention uses vmap which is untraceable)
-    backbone_state = model.backbone.state_dict()
-    eager_backbone = AutoModelForCausalLM.from_pretrained(
-        base_model_name,
-        trust_remote_code=True,
-        attn_implementation="eager",
-        torch_dtype=torch.float32,
-    )
-
-    # Remap state dict keys — trained model may use different prefix than fresh model
-    eager_expected = set(eager_backbone.state_dict().keys())
-    remapped_state = {}
-    for k, v in backbone_state.items():
-        if k in eager_expected:
-            remapped_state[k] = v
-        elif f"model.{k}" in eager_expected:
-            remapped_state[f"model.{k}"] = v
-        else:
-            remapped_state[k] = v
-    # Keep pretrained weights for keys not in checkpoint (e.g., lm_head)
-    for k, v in eager_backbone.state_dict().items():
-        if k not in remapped_state:
-            remapped_state[k] = v
-
-    eager_backbone.load_state_dict(remapped_state)
-    model.backbone = eager_backbone
-    print("Swapped backbone to eager attention for ONNX export")
 
     # Export
     onnx_path = export_to_onnx(model, tokenizer, args.output, max_length)
