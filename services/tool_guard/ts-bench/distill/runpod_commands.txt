@@ -1,0 +1,89 @@
+RunPod Setup
+  GPU Pod: A100 80GB
+  Image: runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+  Volume: 50GB+ at /workspace
+
+====================================================================
+0. Environment setup
+====================================================================
+
+export HF_HOME=/workspace/.cache/huggingface
+
+cd /workspace
+git clone https://github.com/triageai/Palisade.git
+cd Palisade
+
+# Clone ToolSafe (has TS-Bench evaluation data)
+apt-get update && apt-get install -y git-lfs
+cd services/tool_guard/ts-bench
+git clone https://github.com/MurrayTom/ToolSafe.git
+cd ToolSafe && git lfs install && git lfs pull && cd ..
+
+# Install deps
+pip install vllm requests scikit-learn tqdm transformers accelerate torch onnx onnxruntime-gpu numpy
+
+====================================================================
+1. Generate labels (~30 min) — needs two terminals
+====================================================================
+
+--- Terminal 1: start vLLM ---
+
+export HF_HOME=/workspace/.cache/huggingface
+cd /workspace/Palisade/services/tool_guard/ts-bench
+vllm serve MurrayTom/TS-Guard --port 8000
+
+--- Wait for "Uvicorn running on http://0.0.0.0:8000" ---
+
+--- Terminal 2: run labeler ---
+
+export HF_HOME=/workspace/.cache/huggingface
+cd /workspace/Palisade/services/tool_guard/ts-bench
+python distill/generate_labels.py --url http://localhost:8000 --output distill/labeled_data.json
+
+--- When done, Ctrl+C the vLLM server in Terminal 1 to free VRAM ---
+
+--- If interrupted, resume with: ---
+python distill/generate_labels.py --url http://localhost:8000 --output distill/labeled_data.json --resume
+
+====================================================================
+2. Train classifier (~15-30 min)
+====================================================================
+
+cd /workspace/Palisade/services/tool_guard/ts-bench
+python distill/train_classifier.py \
+  --data distill/labeled_data.json \
+  --base-model Qwen/Qwen3-0.6B \
+  --output-dir distill/checkpoints \
+  --epochs 5 \
+  --batch-size 4 \
+  --lr 2e-5 \
+  --max-length 1024
+
+====================================================================
+3. Evaluate against TS-Bench
+====================================================================
+
+cd /workspace/Palisade/services/tool_guard/ts-bench
+python distill/eval_classifier.py \
+  --checkpoint distill/checkpoints/best_model \
+  --dataset all \
+  --batch-size 16
+
+====================================================================
+4. Export to ONNX + validate
+====================================================================
+
+cd /workspace/Palisade/services/tool_guard/ts-bench
+python distill/export_onnx.py \
+  --checkpoint distill/checkpoints/best_model \
+  --output distill/onnx_model \
+  --validate
+
+====================================================================
+5. Download the result
+====================================================================
+
+cd /workspace/Palisade/services/tool_guard/ts-bench/distill
+tar czf /workspace/onnx_model.tar.gz onnx_model/
+
+Then download /workspace/onnx_model.tar.gz from the RunPod file browser.
