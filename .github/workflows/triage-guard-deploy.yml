@@ -16,6 +16,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-1
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +30,11 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 9
+
+      - name: Download tool guard checkpoint from S3
+        run: |
+          mkdir -p services/triage-guard/models/tool_guard
+          aws s3 cp s3://palisade-models/tool_guard/ services/triage-guard/models/tool_guard/ --recursive
 
       - name: Build and push Docker image
         run: |
@@ -60,6 +66,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-1
       VPC_ID: ${{ secrets.VPC_ID }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -73,6 +80,11 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 9
+
+      - name: Download tool guard checkpoint from S3
+        run: |
+          mkdir -p services/triage-guard/models/tool_guard
+          aws s3 cp s3://palisade-models/tool_guard/ services/triage-guard/models/tool_guard/ --recursive
 
       - name: Build and push Docker image
         run: |

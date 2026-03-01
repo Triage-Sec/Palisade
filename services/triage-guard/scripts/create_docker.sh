@@ -11,7 +11,8 @@
 #   - AWS CLI configured (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION)
 #   - Docker running
 #   - AWS_ACCOUNT_ID set (or auto-detected via STS)
-#   - Models pre-downloaded in services/triage-guard/models/
+#   - HF_TOKEN set (for prompt guard model download during build)
+#   - Tool guard checkpoint pre-staged in services/triage-guard/models/tool_guard/
 
 set -euo pipefail
 
@@ -26,13 +27,11 @@ echo "  Version:  ${VERSION}"
 echo "  Registry: ${ECR_REGISTRY}"
 echo "  Repo:     ${ECR_REPO}"
 
-# Verify models exist locally
-if [ ! -d "services/triage-guard/models/prompt_guard" ]; then
-  echo "ERROR: models/prompt_guard not found. Run: cd services/triage-guard && python scripts/download_prompt_guard.py"
-  exit 1
-fi
+# Tool guard checkpoint must be pre-staged (prompt guard is downloaded during build)
 if [ ! -f "services/triage-guard/models/tool_guard/model.pt" ]; then
-  echo "ERROR: models/tool_guard/model.pt not found. Extract checkpoint first."
+  echo "ERROR: models/tool_guard/model.pt not found."
+  echo "  Local:  tar xzf services/tool_guard/qwen3_0.6b_distillation.gz -C services/triage-guard/models/tool_guard/"
+  echo "  CI:     download from S3 before running this script"
   exit 1
 fi
 
@@ -44,9 +43,13 @@ aws ecr describe-repositories --repository-names "${ECR_REPO}" --region "${AWS_R
 aws ecr get-login-password --region "${AWS_REGION}" | \
   docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
-# Build from repo root — models are COPY'd in (no HF download at build time).
+# HF_TOKEN is mounted as a secret so it never appears in any image layer.
+: "${HF_TOKEN:?HF_TOKEN is required for prompt guard model download}"
+
+# Build from repo root.
 docker build \
   -f services/triage-guard/deploy/Dockerfile \
+  --secret id=hf_token,env=HF_TOKEN \
   -t "${ECR_REGISTRY}/${ECR_REPO}:${VERSION}" \
   -t "${ECR_REGISTRY}/${ECR_REPO}:latest" \
   .
